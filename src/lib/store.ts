@@ -1,6 +1,6 @@
 import { supabase } from './supabase'
 import type {
-  BlockInput, Checkin, DayMode, Goal, Habit, Season, HabitInput, Routine, RoutineLog, ScheduleBlock, Task, TaskInput, WorkoutInput, WorkoutPlan, XpEvent,
+  BlockInput, Checkin, DayMode, Goal, Habit, PullupLog, Race, Season, WorkoutLog, WorkoutTemplate, HabitInput, Routine, RoutineLog, ScheduleBlock, Task, TaskInput, WorkoutInput, WorkoutPlan, XpEvent,
 } from './types'
 
 // One interface, two backends: the real database, and a demo store (for testing and a future portfolio demo).
@@ -47,6 +47,56 @@ export interface Store {
   deleteGoal(id: string): Promise<void>
   setMilestoneDone(id: string, done: boolean): Promise<void>
   setGoalCompleted(id: string, done: boolean): Promise<void>
+  workoutLogs: Crud<WorkoutLog>
+  templates: Crud<WorkoutTemplate>
+  pullups: Crud<PullupLog>
+  races: Crud<Race>
+}
+
+// Simple list/save/delete for tables owned by the signed-in person.
+export type Crud<T extends { id: string }> = {
+  list(): Promise<T[]>
+  save(row: T): Promise<T>
+  remove(id: string): Promise<void>
+}
+
+function supabaseCrud<T extends { id: string }>(table: string, cols: string, what: string, order = 'created_at'): Crud<T> {
+  return {
+    async list() {
+      const { data, error } = await supabase.from(table).select(cols).order(order, { ascending: false })
+      fail(`load your ${what}`, error)
+      return (data ?? []) as unknown as T[]
+    },
+    async save(row) {
+      const { data, error } = await supabase.from(table).upsert(row).select(cols).single()
+      fail(`save that ${what.replace(/s$/, '')}`, error)
+      return data as unknown as T
+    },
+    async remove(id) {
+      const { error } = await supabase.from(table).delete().eq('id', id)
+      fail(`delete that ${what.replace(/s$/, '')}`, error)
+    },
+  }
+}
+
+function demoCrud<T extends { id: string }>(key: string, order: keyof T): Crud<T> {
+  const rows = () => ((demo as unknown as Record<string, T[]>)[key] ??= [])
+  const set = (v: T[]) => {
+    ;(demo as unknown as Record<string, T[]>)[key] = v
+    save()
+  }
+  return {
+    async list() {
+      return [...rows()].sort((a, b) => String(b[order]).localeCompare(String(a[order])))
+    },
+    async save(row) {
+      set([...rows().filter((r) => r.id !== row.id), row])
+      return row
+    },
+    async remove(id) {
+      set(rows().filter((r) => r.id !== id))
+    },
+  }
 }
 
 const fail = (what: string, error: { message: string } | null) => {
@@ -306,6 +356,10 @@ export const supabaseStore: Store = {
     const { error } = await supabase.from('goals').update({ completed_at: done ? new Date().toISOString() : null }).eq('id', id)
     fail('save that goal', error)
   },
+  workoutLogs: supabaseCrud<WorkoutLog>('workout_logs', 'id,date,kind,title,version,plan_id,duration_min,distance_km,exercises,effort,notes', 'workouts', 'date'),
+  templates: supabaseCrud<WorkoutTemplate>('workout_templates', 'id,title,kind,exercises,notes', 'templates'),
+  pullups: supabaseCrud<PullupLog>('pullup_logs', 'id,date,variation,best_reps,sets,notes', 'pull-up logs', 'date'),
+  races: supabaseCrud<Race>('races', 'id,name,date,division,result,notes', 'races', 'date'),
 }
 
 /* ---------- Demo store (browser only) ---------- */
@@ -538,6 +592,10 @@ Object.assign(demoStore, {
     demo.goals = (demo.goals ?? []).map((g) => (g.id === id ? { ...g, completed_at: done ? new Date().toISOString() : null } : g))
     save()
   },
+  workoutLogs: demoCrud<WorkoutLog>('workoutLogs', 'date'),
+  templates: demoCrud<WorkoutTemplate>('templates', 'title'),
+  pullups: demoCrud<PullupLog>('pullups', 'date'),
+  races: demoCrud<Race>('races', 'date'),
 } satisfies Partial<Store>)
 
 export const IS_DEMO = import.meta.env.VITE_DEMO === '1'

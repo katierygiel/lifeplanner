@@ -42,7 +42,7 @@ export function evaluate(xp: XpEvent[], routines: Routine[], earned: Set<string>
   for (const e of xp) perDay.set(e.date, (perDay.get(e.date) ?? 0) + e.amount)
   if ([...perDay.values()].some((v) => v >= 100)) add('big-day')
 
-  const workouts = xp.filter((e) => e.source_type === 'workout')
+  const workouts = xp.filter((e) => e.source_type === 'workout' || e.source_type === 'workout-log')
   if (workouts.some((e) => e.amount === WORKOUT_AMOUNTS.short)) add('short-counts')
   if (workouts.some((e) => e.amount === WORKOUT_AMOUNTS.recovery)) add('rest-counts')
   if (workouts.length >= 5) add('five-workouts')

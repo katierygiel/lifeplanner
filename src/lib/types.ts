@@ -140,3 +140,34 @@ export type Goal = {
   milestones: Milestone[]
   habit_ids: string[]
 }
+
+export type WorkoutKind = 'strength' | 'run' | 'walk' | 'pilates' | 'mobility' | 'hyrox' | 'other'
+export type SetEntry = { reps: number | null; weight: number | null }
+export type ExerciseEntry = { name: string; sets: SetEntry[]; notes?: string }
+
+export type WorkoutLog = {
+  id: string
+  date: string
+  kind: WorkoutKind
+  title: string
+  version: 'full' | 'short' | 'recovery' | null
+  plan_id: string | null
+  duration_min: number | null
+  distance_km: number | null
+  exercises: ExerciseEntry[]
+  effort: number | null
+  notes: string | null
+}
+
+export type WorkoutTemplate = {
+  id: string
+  title: string
+  kind: WorkoutKind
+  exercises: ExerciseEntry[]
+  notes: string | null
+}
+
+export type PullupVariation = 'negative' | 'band' | 'assisted' | 'chinup' | 'strict'
+export type PullupLog = { id: string; date: string; variation: PullupVariation; best_reps: number; sets: number | null; notes: string | null }
+
+export type Race = { id: string; name: string; date: string; division: string | null; result: string | null; notes: string | null }

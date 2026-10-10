@@ -350,8 +350,8 @@ function Progress({ xp, earnedKeys: earned, today: t0, loading }: { xp: XpEvent[
     const make = (evs: XpEvent[]) => ({
       xp: evs.reduce((s, e) => s + e.amount, 0),
       days: new Set(evs.map((e) => e.date)).size,
-      workouts: evs.filter((e) => e.source_type === 'workout').length,
-      shortOrRecovery: evs.filter((e) => e.source_type === 'workout' && e.amount < 30).length,
+      workouts: evs.filter((e) => e.source_type.startsWith('workout')).length,
+      shortOrRecovery: evs.filter((e) => e.source_type.startsWith('workout') && e.amount < 30).length,
       routines: evs.filter((e) => e.source_type === 'routine').length,
       habits: evs.filter((e) => e.source_type === 'habit').length,
       tasks: evs.filter((e) => e.source_type === 'task').length,

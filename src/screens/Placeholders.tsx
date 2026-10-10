@@ -1,4 +1,4 @@
-import { Dumbbell, Shirt } from 'lucide-react'
+import { Shirt } from 'lucide-react'
 import { EmptyState } from '../components/ui'
 
 function PageHeader({ eyebrow, title }: { eyebrow: string; title: string }) {
@@ -7,20 +7,6 @@ function PageHeader({ eyebrow, title }: { eyebrow: string; title: string }) {
       <div className="text-[13px] font-semibold text-ink-soft">{eyebrow}</div>
       <h1 className="mt-0.5 text-[28px] font-extrabold leading-tight tracking-tight">{title}</h1>
     </header>
-  )
-}
-
-export function Fitness() {
-  return (
-    <div className="space-y-3">
-      <PageHeader eyebrow="Strength, running, Pilates, HYROX" title="Fitness" />
-      <EmptyState
-        icon={<Dumbbell size={24} />}
-        title="Your training home"
-        body="Templates, logs, pull-up progress, and runs. For now, plan each day's workout from Home."
-        stage="Coming in Phase 2"
-      />
-    </div>
   )
 }
 

@@ -3,6 +3,8 @@ import { ArrowRight, CalendarCheck, Dumbbell, Plus, Settings, Sparkles, Star } f
 import { useMemo, useState } from 'react'
 import Celebration from '../components/Celebration'
 import CheckinCard from '../components/CheckinCard'
+import QuickLog from '../components/QuickLog'
+import type { LogPreset } from '../components/WorkoutLogSheet'
 import { daysAway, weekDots } from '../lib/achievements'
 import HabitSheet from '../components/HabitSheet'
 import RoutineCard from '../components/RoutineCard'
@@ -49,6 +51,7 @@ export default function Home({ name, onOpenSettings, onOpenGoals }: { name?: str
   const [routineSheet, setRoutineSheet] = useState<{ open: boolean; routine: Routine | null }>({ open: false, routine: null })
   const [pickedVersion, setPickedVersion] = useState<WorkoutVersion | null>(null)
   const [workoutOpen, setWorkoutOpen] = useState(false)
+  const [quickLog, setQuickLog] = useState<LogPreset | null>(null)
 
   const { visible, hidden, movable } = useMemo(() => splitForMode(day.tasks, day.mode), [day.tasks, day.mode])
   const listed = showHidden ? [...visible, ...hidden] : visible
@@ -352,7 +355,23 @@ export default function Home({ name, onOpenSettings, onOpenGoals }: { name?: str
               onToggle={() => day.completeWorkout(version)}
             />
           </div>
-          {version !== 'full' && <p className="px-2 text-[12px] font-semibold text-ink-soft">Every version counts toward your week.</p>}
+          {day.workout.completed_at ? (
+            <button
+              onClick={() =>
+                setQuickLog({
+                  title: day.workout?.[`${version}_title`] ?? '',
+                  version,
+                  plan_id: day.workout?.id ?? null,
+                  kind: /run|jog|5k|10k/i.test(day.workout?.[`${version}_title`] ?? '') ? 'run' : /walk/i.test(day.workout?.[`${version}_title`] ?? '') ? 'walk' : /pilates/i.test(day.workout?.[`${version}_title`] ?? '') ? 'pilates' : /mobility|stretch|yoga/i.test(day.workout?.[`${version}_title`] ?? '') ? 'mobility' : 'strength',
+                })
+              }
+              className="px-2 text-[12px] font-bold text-peri-deep"
+            >
+              Log details (sets, weights, distance)
+            </button>
+          ) : (
+            version !== 'full' && <p className="px-2 text-[12px] font-semibold text-ink-soft">Every version counts toward your week.</p>
+          )}
         </Card>
       ) : (
         <button
@@ -420,6 +439,7 @@ export default function Home({ name, onOpenSettings, onOpenGoals }: { name?: str
         <Plus size={26} />
       </motion.button>
 
+      {quickLog && <QuickLog preset={quickLog} onClose={() => setQuickLog(null)} />}
       <Celebration item={day.celebrations[0]} remaining={day.celebrations.length} onDone={day.dismissCelebration} />
       <WorkoutSheet
         open={workoutOpen}
