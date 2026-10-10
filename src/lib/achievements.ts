@@ -12,7 +12,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   { key: 'rest-counts', title: 'Rest counts', hint: 'Finish a recovery option' },
   { key: 'five-workouts', title: 'Five workouts logged', hint: 'Finish 5 workouts, any version' },
   { key: 'first-week', title: 'First week of showing up', hint: 'Be active on 7 different days' },
-  { key: 'personal-reset', title: 'Completed a reset', hint: 'Finish a weekly reset routine' },
+  { key: 'personal-reset', title: 'Completed a reset', hint: 'Finish a weekly reset or reflection' },
   { key: 'routine-regular', title: 'Routine regular', hint: 'Finish the same routine 10 times' },
   { key: 'ten-in-a-month', title: 'Ten workouts in a month', hint: '10 workouts in one calendar month' },
   { key: 'first-month', title: 'First month of consistency', hint: '12 active days within 30 days' },
@@ -65,7 +65,7 @@ export function evaluate(xp: XpEvent[], routines: Routine[], earned: Set<string>
   for (const e of xp.filter((e) => e.source_type === 'routine' && e.source_id)) routineCounts.set(e.source_id!, (routineCounts.get(e.source_id!) ?? 0) + 1)
   if ([...routineCounts.values()].some((n) => n >= 10)) add('routine-regular')
   const weekly = new Set(routines.filter((r) => r.time_of_day === 'weekly').map((r) => r.id))
-  if ([...routineCounts.keys()].some((id) => weekly.has(id))) add('personal-reset')
+  if ([...routineCounts.keys()].some((id) => weekly.has(id)) || xp.some((e) => e.source_type === 'review')) add('personal-reset')
 
   if (xp.some((e) => e.source_type === 'goal')) add('first-goal')
   if (xp.some((e) => e.source_type === 'season')) add('season-wrap')

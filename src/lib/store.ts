@@ -1,6 +1,6 @@
 import { supabase } from './supabase'
 import type {
-  BlockInput, Checkin, ClosetItem, DayMode, Goal, Outfit, OutfitDay, Habit, PullupLog, Race, Season, WorkoutLog, WorkoutTemplate, HabitInput, Routine, RoutineLog, ScheduleBlock, Task, TaskInput, WorkoutInput, WorkoutPlan, XpEvent,
+  BlockInput, Checkin, ClosetItem, GroceryItem, Meal, MealPlanEntry, WeeklyReview, DayMode, Goal, Outfit, OutfitDay, Habit, PullupLog, Race, Season, WorkoutLog, WorkoutTemplate, HabitInput, Routine, RoutineLog, ScheduleBlock, Task, TaskInput, WorkoutInput, WorkoutPlan, XpEvent,
 } from './types'
 
 // One interface, two backends: the real database, and a demo store (for testing and a future portfolio demo).
@@ -59,6 +59,12 @@ export interface Store {
   uploadPhoto(itemId: string, blob: Blob): Promise<string>
   photoUrls(paths: string[]): Promise<Record<string, string>>
   removePhoto(path: string): Promise<void>
+  reviews: Crud<WeeklyReview>
+  meals: Crud<Meal>
+  groceries: Crud<GroceryItem>
+  listMealPlan(from: string, to: string): Promise<MealPlanEntry[]>
+  setMealPlan(e: Omit<MealPlanEntry, 'id'>): Promise<MealPlanEntry | null>
+  listHabitLogsBetween(from: string, to: string): Promise<{ habit_id: string; date: string }[]>
 }
 
 // Simple list/save/delete for tables owned by the signed-in person.
@@ -412,6 +418,34 @@ export const supabaseStore: Store = {
     const { error } = await supabase.storage.from('closet').remove([path])
     fail('remove that photo', error)
   },
+  reviews: supabaseCrud<WeeklyReview>('weekly_reviews', 'id,week_start,went_well,proud,hard,change,next_priority', 'weekly reviews', 'week_start'),
+  meals: supabaseCrud<Meal>('meals', 'id,name,kind,notes,is_backup,favorite', 'meals'),
+  groceries: supabaseCrud<GroceryItem>('grocery_items', 'id,name,category,checked', 'grocery items'),
+  async listMealPlan(from, to) {
+    const { data, error } = await supabase.from('meal_plan').select('id,date,slot,meal_id,label,prepped').gte('date', from).lte('date', to)
+    fail('load your meal plan', error)
+    return (data ?? []) as MealPlanEntry[]
+  },
+  async setMealPlan(e) {
+    if (!e.meal_id && !e.label) {
+      const { error } = await supabase.from('meal_plan').delete().eq('date', e.date).eq('slot', e.slot)
+      fail('clear that meal', error)
+      return null
+    }
+    const { data: u } = await supabase.auth.getUser()
+    const { data, error } = await supabase
+      .from('meal_plan')
+      .upsert({ user_id: u.user?.id, ...e }, { onConflict: 'user_id,date,slot' })
+      .select('id,date,slot,meal_id,label,prepped')
+      .single()
+    fail('plan that meal', error)
+    return data as MealPlanEntry
+  },
+  async listHabitLogsBetween(from, to) {
+    const { data, error } = await supabase.from('habit_logs').select('habit_id,date').gte('date', from).lte('date', to)
+    fail('load your habits', error)
+    return (data ?? []) as { habit_id: string; date: string }[]
+  },
 }
 
 /* ---------- Demo store (browser only) ---------- */
@@ -431,6 +465,7 @@ type DemoData = {
   goals?: Goal[]
   outfitDays?: OutfitDay[]
   photos?: Record<string, string>
+  mealPlan?: MealPlanEntry[]
 }
 const KEY = 'levelup-demo'
 const uid = () => (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2))
@@ -679,6 +714,22 @@ Object.assign(demoStore, {
   async removePhoto(path: string) {
     if (demo.photos) delete demo.photos[path]
     save()
+  },
+  reviews: demoCrud<WeeklyReview>('reviews', 'week_start'),
+  meals: demoCrud<Meal>('meals', 'name'),
+  groceries: demoCrud<GroceryItem>('groceries', 'name'),
+  async listMealPlan(from: string, to: string) {
+    return (demo.mealPlan ?? []).filter((m) => m.date >= from && m.date <= to)
+  },
+  async setMealPlan(e: Omit<MealPlanEntry, 'id'>) {
+    const rest = (demo.mealPlan ?? []).filter((m) => !(m.date === e.date && m.slot === e.slot))
+    const row = e.meal_id || e.label ? { id: uid(), ...e } : null
+    demo.mealPlan = row ? [...rest, row] : rest
+    save()
+    return row
+  },
+  async listHabitLogsBetween(from: string, to: string) {
+    return (demo.habitLogs ?? []).filter((l) => l.date >= from && l.date <= to)
   },
 } satisfies Partial<Store>)
 

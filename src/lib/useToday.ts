@@ -331,6 +331,7 @@ export function useToday(date: string) {
     seasons, goals,
     blocks, workout, completeWorkout, saveWorkout, deleteWorkout,
     celebrations,
+    reload,
     xpEvents: xp,
     dismissCelebration: () => setCelebrations((c) => c.slice(1)),
     clearError: () => setError(null),

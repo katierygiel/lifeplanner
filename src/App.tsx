@@ -8,12 +8,14 @@ import Goals from './screens/Goals'
 import Fitness from './screens/Fitness'
 import Closet from './screens/Closet'
 import Week from './screens/Week'
+import Reset from './screens/Reset'
+import Meals from './screens/Meals'
 import Settings from './screens/Settings'
 import SignIn from './screens/SignIn'
 import StyleGuide from './screens/StyleGuide'
 
-type Route = TabId | 'style' | 'settings'
-const ROUTES: Route[] = [...TABS.map((t) => t.id), 'style', 'settings']
+type Route = TabId | 'style' | 'settings' | 'reset' | 'meals'
+const ROUTES: Route[] = [...TABS.map((t) => t.id), 'style', 'settings', 'reset', 'meals']
 
 function readHash(): Route {
   const h = window.location.hash.replace('#/', '').replace('#', '') as Route
@@ -46,8 +48,10 @@ export default function App() {
   if (!session && !IS_DEMO) return <SignIn />
 
   const screen = {
-    home: <Home name={IS_DEMO ? null : profile?.display_name} onOpenSettings={() => go('settings')} onOpenGoals={() => go('goals')} onOpenCloset={() => go('closet')} />,
-    week: <Week trainingNotes={profile?.settings?.training_notes as string | undefined} />,
+    home: <Home name={IS_DEMO ? null : profile?.display_name} onOpenSettings={() => go('settings')} onOpenGoals={() => go('goals')} onOpenCloset={() => go('closet')} onOpen={(r) => go(r)} />,
+    week: <Week trainingNotes={profile?.settings?.training_notes as string | undefined} onOpen={(r) => go(r)} />,
+    reset: <Reset go={(r) => go(r)} />,
+    meals: <Meals onBack={() => window.history.length > 1 ? window.history.back() : go('home')} />,
     goals: <Goals />,
     fitness: <Fitness />,
     closet: <Closet />,

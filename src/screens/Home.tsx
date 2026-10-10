@@ -3,6 +3,7 @@ import { ArrowRight, CalendarCheck, Dumbbell, Plus, Settings, Sparkles, Star } f
 import { useMemo, useState } from 'react'
 import Celebration from '../components/Celebration'
 import CheckinCard from '../components/CheckinCard'
+import { Suggestions, TodayMeals } from '../components/HomeExtras'
 import OutfitToday from '../components/OutfitToday'
 import QuickLog from '../components/QuickLog'
 import type { LogPreset } from '../components/WorkoutLogSheet'
@@ -43,8 +44,14 @@ function meta(t: Task) {
 }
 
 export default function Home({
-  name, onOpenSettings, onOpenGoals, onOpenCloset,
-}: { name?: string | null; onOpenSettings: () => void; onOpenGoals: () => void; onOpenCloset: () => void }) {
+  name, onOpenSettings, onOpenGoals, onOpenCloset, onOpen,
+}: {
+  name?: string | null
+  onOpenSettings: () => void
+  onOpenGoals: () => void
+  onOpenCloset: () => void
+  onOpen: (r: 'closet' | 'reset' | 'meals' | 'week') => void
+}) {
   const now = new Date()
   const date = today()
   const day = useToday(date)
@@ -66,6 +73,7 @@ export default function Home({
   const version: WorkoutVersion =
     (day.workout?.completed_at && day.workout.chosen) ||
     (pickedVersion && available.includes(pickedVersion) ? pickedVersion : null) ||
+    (day.workout?.chosen && available.includes(day.workout.chosen) ? day.workout.chosen : null) ||
     (available.includes(suggestedVersion) ? suggestedVersion : available[0] ?? 'full')
   const activeSeason = day.seasons.find((x) => seasonStatus(x, date) === 'active')
   const seasonGoals = activeSeason ? day.goals.filter((x) => x.season_id === activeSeason.id) : []
@@ -131,6 +139,17 @@ export default function Home({
 
       {/* Check-in */}
       {!day.loading && <CheckinCard checkin={day.checkin} onSave={day.saveCheckin} />}
+      {!day.loading && (
+        <Suggestions
+          date={date}
+          onEditHabit={(id) => {
+            const h = day.habits.find((x) => x.id === id)
+            if (h) setHabitSheet({ open: true, habit: h })
+          }}
+          onGo={onOpen}
+          onChanged={day.reload}
+        />
+      )}
 
       {/* Priority */}
       {priority ? (
@@ -393,6 +412,7 @@ export default function Home({
       {/* Outfit */}
       <SectionTitle title="Outfit" />
       <OutfitToday onOpenCloset={onOpenCloset} />
+      <TodayMeals date={date} onOpen={() => onOpen('meals')} />
 
       {/* Progress */}
       <SectionTitle title="Progress" />

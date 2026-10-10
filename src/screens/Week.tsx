@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, Download, Dumbbell, Plus, Repeat } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Download, Dumbbell, Plus, Repeat, RotateCcw, Utensils } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import BaseWeekSheet, { baseWeekBlocks } from '../components/BaseWeekSheet'
 import BlockSheet from '../components/BlockSheet'
@@ -12,7 +12,7 @@ import { mondayOf, useWeek } from '../lib/useWeek'
 
 const LOAD_TEXT = { light: 'Light day', steady: 'Steady day', busy: 'Busy day', full: 'Very full day' }
 
-export default function Week({ trainingNotes }: { trainingNotes?: string | null }) {
+export default function Week({ trainingNotes, onOpen }: { trainingNotes?: string | null; onOpen: (r: 'reset' | 'meals') => void }) {
   const t0 = today()
   const [weekStart, setWeekStart] = useState(mondayOf(t0))
   const [selected, setSelected] = useState(t0)
@@ -76,6 +76,15 @@ export default function Week({ trainingNotes }: { trainingNotes?: string | null 
           <button onClick={week.clearError} className="text-[13px] font-bold text-peri-deep">OK</button>
         </Card>
       )}
+
+      <div className="flex gap-2">
+        <button onClick={() => onOpen('reset')} className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-white py-2.5 text-[13px] font-bold shadow-soft">
+          <RotateCcw size={16} className="text-peri-deep" /> Weekly reset
+        </button>
+        <button onClick={() => onOpen('meals')} className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-white py-2.5 text-[13px] font-bold shadow-soft">
+          <Utensils size={16} className="text-peri-deep" /> Meals and groceries
+        </button>
+      </div>
 
       {/* Week strip */}
       <Card className="px-2 py-3">

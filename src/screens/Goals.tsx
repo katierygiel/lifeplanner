@@ -3,6 +3,7 @@ import { Award, Check, ChevronDown, Flag, Lock, Pencil, Plus, Sparkles } from 'l
 import { useMemo, useState } from 'react'
 import Celebration from '../components/Celebration'
 import { GoalSheet, SeasonSheet } from '../components/SeasonSheets'
+import WeeklyBars from '../components/WeeklyBars'
 import { Button, Card, Eyebrow, ProgressRing, SectionTitle, XPBar, cx } from '../components/ui'
 import { ACHIEVEMENTS, activeDays, weekDots } from '../lib/achievements'
 import { addDays, fromDay } from '../lib/dates'
@@ -358,6 +359,18 @@ function Progress({ xp, earnedKeys: earned, today: t0, loading }: { xp: XpEvent[
     })
     return { now: make(inRange(weekStart, addDays(weekStart, 6))), last: make(inRange(lastWeekStart, addDays(lastWeekStart, 6))) }
   }, [xp, weekStart, lastWeekStart])
+  const weeks = Array.from({ length: 8 }, (_, i) => {
+    const start = addDays(weekStart, (i - 7) * 7)
+    const evs = xp.filter((e) => e.date >= start && e.date <= addDays(start, 6))
+    const d = fromDay(start)
+    return {
+      start,
+      label: i === 7 ? 'Now' : `${d.getMonth() + 1}/${d.getDate()}`,
+      detail: i === 7 ? 'This week' : `Week of ${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`,
+      xp: evs.reduce((s, e) => s + e.amount, 0),
+      workouts: evs.filter((e) => e.source_type.startsWith('workout')).length,
+    }
+  })
   const dots = weekDots(xp, t0)
   const totalActive = activeDays(xp).length
   const keys = new Set(earned.map((e) => e.achievement_key))
@@ -397,6 +410,11 @@ function Progress({ xp, earnedKeys: earned, today: t0, loading }: { xp: XpEvent[
           <Stat label="Habits" value={summary.now.habits} prev={summary.last.habits} />
           <Stat label="Tasks done" value={summary.now.tasks} prev={summary.last.tasks} />
         </div>
+      </Card>
+
+      <Card className="space-y-5">
+        <WeeklyBars title="XP per week" unit="XP" bars={weeks.map((w) => ({ key: w.start, label: w.label, value: w.xp, detail: w.detail }))} />
+        <WeeklyBars title="Workouts per week" unit="workouts" bars={weeks.map((w) => ({ key: w.start, label: w.label, value: w.workouts, detail: w.detail }))} />
       </Card>
 
       <SectionTitle

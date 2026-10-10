@@ -194,3 +194,19 @@ export type Outfit = {
 }
 
 export type OutfitDay = { id: string; date: string; outfit_id: string; worn: boolean }
+
+export type WeeklyReview = {
+  id: string
+  week_start: string
+  went_well: string | null
+  proud: string | null
+  hard: string | null
+  change: string | null
+  next_priority: string | null
+}
+
+export type MealKind = 'breakfast' | 'lunch' | 'dinner' | 'snack'
+export type Meal = { id: string; name: string; kind: MealKind; notes: string | null; is_backup: boolean; favorite: boolean }
+export type MealSlot = 'breakfast' | 'lunch' | 'dinner'
+export type MealPlanEntry = { id: string; date: string; slot: MealSlot; meal_id: string | null; label: string | null; prepped: boolean }
+export type GroceryItem = { id: string; name: string; category: string | null; checked: boolean }

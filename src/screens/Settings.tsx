@@ -1,5 +1,6 @@
 import { ArrowLeft, Download, LogOut, Palette } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import RemindersCard from '../components/RemindersCard'
 import { Button, Card, Eyebrow } from '../components/ui'
 import { exportAll, supabase, type Profile } from '../lib/supabase'
 
@@ -98,6 +99,11 @@ export default function Settings({ email, profile, onSaveName, onSaveSettings, o
           Save training notes
         </Button>
       </Card>
+
+      <RemindersCard
+        saved={profile?.settings?.reminders as Record<string, { on: boolean; time: string }> | undefined}
+        onSave={(reminders) => onSaveSettings({ reminders })}
+      />
 
       <Card>
         <Eyebrow>Your data</Eyebrow>
