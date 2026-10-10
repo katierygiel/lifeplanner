@@ -1,0 +1,52 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+
+  --color-ink: #3A3768;
+  --color-ink-soft: #6E6A99;
+  --color-ink-faint: #A6A3C7;
+
+  --color-peri: #9AA8FF;
+  --color-peri-deep: #7484F2;
+  --color-peri-soft: #C9D3FF;
+  --color-peri-wash: #EEF1FF;
+
+  --color-lilac: #E6D9FF;
+  --color-lilac-deep: #B9A3F0;
+  --color-lilac-wash: #F3EDFF;
+
+  --color-lemon: #FFF2A8;
+  --color-lemon-deep: #FFE066;
+  --color-lemon-soft: #FFF6C7;
+  --color-lemon-ink: #8C7414;
+
+  --color-mint: #CDEFE0;
+  --color-mint-ink: #2F7A5A;
+
+  --color-canvas: #F7F5FF;
+  --color-line: #E7E3F7;
+
+  --radius-card: 22px;
+  --radius-btn: 14px;
+
+  --shadow-soft: 0 1px 2px rgb(58 55 104 / 0.04), 0 6px 20px rgb(58 55 104 / 0.06);
+}
+
+@layer base {
+html, body, #root { height: 100%; }
+body {
+  margin: 0;
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+button { font: inherit; color: inherit; cursor: pointer; }
+:focus-visible { outline: 2px solid var(--color-peri-deep); outline-offset: 2px; border-radius: 8px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
