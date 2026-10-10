@@ -3,8 +3,13 @@ import { addDays } from './dates'
 import { routineProgress } from './routines'
 import { starterRoutines } from './starters'
 import { store } from './store'
-import type { Checkin, DayMode, Habit, HabitInput, Routine, RoutineLog, Task, TaskInput, XpEvent } from './types'
+import { blocksOn } from './schedule'
+import type {
+  Checkin, DayMode, Habit, HabitInput, Routine, RoutineLog, ScheduleBlock, Task, TaskInput, WorkoutInput, WorkoutPlan, XpEvent,
+} from './types'
 import { levelFromXp, TIER_XP } from './xp'
+
+export const WORKOUT_XP = { full: 30, short: 25, recovery: 20 } as const
 
 const emptyCheckin = (date: string): Checkin => ({ date, energy: null, mood: null, motivation: null, soreness: null, day_mode: 'full' })
 
@@ -27,6 +32,8 @@ export function useToday(date: string) {
     xpRef.current = typeof next === 'function' ? next(xpRef.current) : next
     setXpState(xpRef.current)
   }
+  const [blocks, setBlocks] = useState<ScheduleBlock[]>([])
+  const [workout, setWorkout] = useState<WorkoutPlan | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -34,7 +41,7 @@ export function useToday(date: string) {
 
   const reload = useCallback(async () => {
     try {
-      const [t, x, c, h, hl, r, rl] = await Promise.all([
+      const [t, x, c, h, hl, r, rl, b, w] = await Promise.all([
         store.listTasks(date),
         store.listXp(),
         store.getCheckin(date),
@@ -42,7 +49,11 @@ export function useToday(date: string) {
         store.listHabitLogs(date),
         store.listRoutines(),
         store.listRoutineLogs(date),
+        store.listBlocks(),
+        store.listWorkouts(date, date),
       ])
+      setBlocks(blocksOn(b, date))
+      setWorkout(w[0] ?? null)
       setTasks(t)
       setXp(x)
       setCheckin(c ?? emptyCheckin(date))
@@ -235,6 +246,41 @@ export function useToday(date: string) {
       reload()
     }
   }
+  /* ----- Workout ----- */
+  async function completeWorkout(version: 'full' | 'short' | 'recovery') {
+    if (!workout) return
+    const already = workout.completed_at && workout.chosen === version
+    const next: WorkoutPlan = already ? { ...workout, chosen: version, completed_at: null } : { ...workout, chosen: version, completed_at: new Date().toISOString() }
+    setWorkout(next)
+    try {
+      await store.saveWorkout(next)
+      await unearn('workout', workout.id, true)
+      if (!already) await earn('workout', workout.id, WORKOUT_XP[version])
+    } catch (e) {
+      report(e)
+      reload()
+    }
+  }
+  async function saveWorkout(w: WorkoutInput & { id?: string }) {
+    try {
+      const saved = await store.saveWorkout(w)
+      if (saved.date === date) setWorkout(saved)
+      return true
+    } catch (e) {
+      report(e)
+      return false
+    }
+  }
+  async function deleteWorkout(id: string) {
+    setWorkout(null)
+    try {
+      await store.deleteWorkout(id)
+    } catch (e) {
+      report(e)
+      reload()
+    }
+  }
+
   async function addStarterRoutines() {
     try {
       const starters = starterRoutines().map((r, i) => ({ ...r, sort_order: routines.length + i }))
@@ -251,6 +297,7 @@ export function useToday(date: string) {
     toggle, add, edit, remove, moveToTomorrow, setMode, saveCheckin,
     toggleHabit, saveHabit, deleteHabit,
     toggleStep, saveRoutine, deleteRoutine, addStarterRoutines,
+    blocks, workout, completeWorkout, saveWorkout, deleteWorkout,
     clearError: () => setError(null),
   }
 }

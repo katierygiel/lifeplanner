@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import { ArrowRight, CalendarCheck, Plus, Settings, Sparkles, Star } from 'lucide-react'
+import { ArrowRight, CalendarCheck, Dumbbell, Plus, Settings, Sparkles, Star } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import CheckinCard from '../components/CheckinCard'
 import HabitSheet from '../components/HabitSheet'
@@ -7,20 +7,17 @@ import RoutineCard from '../components/RoutineCard'
 import RoutineSheet from '../components/RoutineSheet'
 import { describeDays } from '../components/Sheet'
 import TaskSheet from '../components/TaskSheet'
+import { WorkoutSheet } from '../components/WorkoutSheets'
+import { formatRange, KIND_STYLE } from '../lib/schedule'
 import { Button, Card, CheckRow, Eyebrow, ProgressRing, SectionTitle, XPBar, cx } from '../components/ui'
 import { today } from '../lib/dates'
 import { splitForMode } from '../lib/plan'
 import { defaultVersion, isOn } from '../lib/routines'
 import type { Habit, Routine, Task, TaskInput } from '../lib/types'
-import { useToday } from '../lib/useToday'
+import { useToday, WORKOUT_XP } from '../lib/useToday'
 import { TIER_XP } from '../lib/xp'
 
 type WorkoutVersion = 'full' | 'short' | 'recovery'
-const WORKOUT: Record<WorkoutVersion, { title: string; detail: string; xp: number }> = {
-  full: { title: 'Upper body', detail: '45 min · sample workout', xp: 30 },
-  short: { title: 'Upper body, short', detail: '20 min · sample workout', xp: 25 },
-  recovery: { title: 'Recovery walk', detail: '25 min · sample workout', xp: 20 },
-}
 
 function greeting(d: Date) {
   const h = d.getHours()
@@ -47,20 +44,26 @@ export default function Home({ name, onOpenSettings }: { name?: string | null; o
   const [showHidden, setShowHidden] = useState(false)
   const [habitSheet, setHabitSheet] = useState<{ open: boolean; habit: Habit | null }>({ open: false, habit: null })
   const [routineSheet, setRoutineSheet] = useState<{ open: boolean; routine: Routine | null }>({ open: false, routine: null })
-  const [version, setVersion] = useState<WorkoutVersion>('full')
-  const [workoutDone, setWorkoutDone] = useState(false)
+  const [pickedVersion, setPickedVersion] = useState<WorkoutVersion | null>(null)
+  const [workoutOpen, setWorkoutOpen] = useState(false)
 
   const { visible, hidden, movable } = useMemo(() => splitForMode(day.tasks, day.mode), [day.tasks, day.mode])
   const listed = showHidden ? [...visible, ...hidden] : visible
   const priority = day.tasks.find((t) => t.is_priority)
   const counted = visible.filter((t) => !t.is_priority)
 
+  const suggestedVersion: WorkoutVersion = day.mode === 'full' ? 'full' : day.mode === 'short' ? 'short' : 'recovery'
+  const available = (['full', 'short', 'recovery'] as WorkoutVersion[]).filter((v) => day.workout?.[`${v}_title`])
+  const version: WorkoutVersion =
+    (day.workout?.completed_at && day.workout.chosen) ||
+    (pickedVersion && available.includes(pickedVersion) ? pickedVersion : null) ||
+    (available.includes(suggestedVersion) ? suggestedVersion : available[0] ?? 'full')
   const todaysHabits = day.habits.filter((h) => h.active && isOn(h.days, date))
   const todaysRoutines = day.routines.filter((r) => isOn(r.days, date))
   const routineDone = todaysRoutines.filter((r) => day.routineLogs.find((l) => l.routine_id === r.id)?.completed).length
-  const totalCount = visible.length + todaysHabits.length + todaysRoutines.length
+  const totalCount = visible.length + todaysHabits.length + todaysRoutines.length + (day.workout ? 1 : 0)
   const doneCount =
-    visible.filter((t) => t.status === 'done').length + todaysHabits.filter((h) => day.habitDone.includes(h.id)).length + routineDone
+    visible.filter((t) => t.status === 'done').length + todaysHabits.filter((h) => day.habitDone.includes(h.id)).length + routineDone + (day.workout?.completed_at ? 1 : 0)
   const progress = totalCount ? doneCount / totalCount : 0
 
   const openNew = (preset?: Partial<TaskInput>) => setSheet({ open: true, task: null, preset })
@@ -134,6 +137,21 @@ export default function Home({ name, onOpenSettings }: { name?: string | null; o
             <Plus size={18} className="text-lemon-ink" />
           </button>
         )
+      )}
+
+      {/* Today's schedule */}
+      {day.blocks.length > 0 && (
+        <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] md:mx-0 md:px-0">
+          {day.blocks.map((b) => (
+            <div key={b.id} className={cx('flex shrink-0 items-center gap-2.5 rounded-2xl px-3.5 py-2.5', KIND_STYLE[b.kind].bg)}>
+              <span className={cx('h-7 w-1 rounded-full', KIND_STYLE[b.kind].dot)} />
+              <span>
+                <span className="block text-[12px] font-semibold text-ink-soft">{formatRange(b)}</span>
+                <span className="block text-[14px] font-bold">{b.title}</span>
+              </span>
+            </div>
+          ))}
+        </div>
       )}
 
       {/* Tasks */}
@@ -282,31 +300,57 @@ export default function Home({ name, onOpenSettings }: { name?: string | null; o
         </Card>
       )}
 
-      {/* Workout (preview until stage 9) */}
-      <SectionTitle title="Workout" action={<span className="text-[11px] font-semibold text-ink-faint">Sample until stage 9</span>} />
-      <Card tone={version === 'recovery' ? 'mint' : 'peri'}>
-        <div className="flex rounded-full bg-white/70 p-1">
-          {(['full', 'short', 'recovery'] as WorkoutVersion[]).map((v) => (
-            <button
-              key={v}
-              onClick={() => setVersion(v)}
-              className={cx('relative flex-1 rounded-full py-1.5 text-[13px] font-semibold capitalize', version === v ? 'text-ink' : 'text-ink-soft')}
-            >
-              {version === v && <motion.span layoutId="workout-pill" className="absolute inset-0 rounded-full bg-white shadow-soft" />}
-              <span className="relative">{v}</span>
+      {/* Workout */}
+      <SectionTitle
+        title="Workout"
+        action={
+          day.workout ? (
+            <button onClick={() => setWorkoutOpen(true)} className="text-[13px] font-bold text-peri-deep">
+              Edit
             </button>
-          ))}
-        </div>
-        <div className="mt-2">
-          <CheckRow
-            title={WORKOUT[version].title}
-            meta={WORKOUT[version].detail}
-            xp={WORKOUT[version].xp}
-            done={workoutDone}
-            onToggle={() => setWorkoutDone((d) => !d)}
-          />
-        </div>
-      </Card>
+          ) : undefined
+        }
+      />
+      {day.workout ? (
+        <Card tone={version === 'recovery' ? 'mint' : 'peri'}>
+          <div className="flex rounded-full bg-white/70 p-1">
+            {(['full', 'short', 'recovery'] as WorkoutVersion[])
+              .filter((v) => day.workout?.[`${v}_title`])
+              .map((v) => (
+                <button
+                  key={v}
+                  onClick={() => setPickedVersion(v)}
+                  className={cx('relative flex-1 rounded-full py-1.5 text-[13px] font-semibold capitalize', version === v ? 'text-ink' : 'text-ink-soft')}
+                >
+                  {version === v && <motion.span layoutId="workout-pill" className="absolute inset-0 rounded-full bg-white shadow-soft" />}
+                  <span className="relative">{v}</span>
+                </button>
+              ))}
+          </div>
+          <div className="mt-2">
+            <CheckRow
+              title={day.workout[`${version}_title`] ?? ''}
+              meta={day.workout[`${version}_detail`] ?? undefined}
+              xp={WORKOUT_XP[version]}
+              done={!!day.workout.completed_at && day.workout.chosen === version}
+              onToggle={() => day.completeWorkout(version)}
+            />
+          </div>
+          {version !== 'full' && <p className="px-2 text-[12px] font-semibold text-ink-soft">Every version counts toward your week.</p>}
+        </Card>
+      ) : (
+        <button
+          onClick={() => setWorkoutOpen(true)}
+          className="flex w-full items-center gap-3 rounded-card border-2 border-dashed border-peri-soft bg-peri-wash/50 px-4 py-4 text-left"
+        >
+          <Dumbbell size={20} className="shrink-0 text-peri-deep" />
+          <span className="flex-1">
+            <span className="block text-[15px] font-bold">No workout planned today</span>
+            <span className="block text-[12px] text-ink-soft">Add one, or import a plan from ChatGPT in My Week.</span>
+          </span>
+          <Plus size={18} className="text-peri-deep" />
+        </button>
+      )}
 
       {/* Progress */}
       <SectionTitle title="Progress" />
@@ -341,6 +385,14 @@ export default function Home({ name, onOpenSettings }: { name?: string | null; o
         <Plus size={26} />
       </motion.button>
 
+      <WorkoutSheet
+        open={workoutOpen}
+        date={date}
+        workout={day.workout}
+        onClose={() => setWorkoutOpen(false)}
+        onSave={day.saveWorkout}
+        onDelete={day.deleteWorkout}
+      />
       <HabitSheet
         open={habitSheet.open}
         habit={habitSheet.habit}

@@ -74,3 +74,35 @@ export type RoutineLog = {
   completed_steps: string[]
   completed: boolean
 }
+
+export type BlockKind = 'work' | 'field' | 'gym' | 'friends' | 'family' | 'event' | 'commute' | 'other'
+
+export type ScheduleBlock = {
+  id: string
+  title: string
+  kind: BlockKind
+  date: string | null // one-off
+  weekday: number | null // weekly repeat, 0 = Sunday
+  start_time: string // 'HH:MM' or 'HH:MM:SS'
+  end_time: string
+  repeat_from: string | null
+  repeat_until: string | null
+  skipped_dates: string[]
+  notes: string | null
+}
+export type BlockInput = Omit<ScheduleBlock, 'id'>
+
+export type WorkoutPlan = {
+  id: string
+  date: string
+  full_title: string | null
+  full_detail: string | null
+  short_title: string | null
+  short_detail: string | null
+  recovery_title: string | null
+  recovery_detail: string | null
+  chosen: 'full' | 'short' | 'recovery' | null
+  completed_at: string | null
+  source: 'manual' | 'import'
+}
+export type WorkoutInput = Omit<WorkoutPlan, 'id'>
