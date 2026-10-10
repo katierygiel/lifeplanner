@@ -4,7 +4,8 @@ import { BottomNav, SideNav, TABS, type TabId } from './components/Nav'
 import { IS_DEMO } from './lib/store'
 import { useProfile, useSession } from './lib/supabase'
 import Home from './screens/Home'
-import { Closet, Fitness, Goals } from './screens/Placeholders'
+import Goals from './screens/Goals'
+import { Closet, Fitness } from './screens/Placeholders'
 import Week from './screens/Week'
 import Settings from './screens/Settings'
 import SignIn from './screens/SignIn'
@@ -45,7 +46,7 @@ export default function App() {
 
   const screen = {
     home: <Home name={IS_DEMO ? null : profile?.display_name} onOpenSettings={() => go('settings')} />,
-    week: <Week />,
+    week: <Week trainingNotes={profile?.settings?.training_notes as string | undefined} />,
     goals: <Goals />,
     fitness: <Fitness />,
     closet: <Closet />,
@@ -55,6 +56,7 @@ export default function App() {
         email={session?.user.email}
         profile={profile}
         onSaveName={(display_name) => update({ display_name })}
+        onSaveSettings={(patch) => update({ settings: { ...(profile?.settings ?? {}), ...patch } })}
         onBack={() => go('home')}
         onOpenStyle={() => go('style')}
       />

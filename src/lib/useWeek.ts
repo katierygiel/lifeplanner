@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { addDays, fromDay } from './dates'
+import { addDays, fromDay, today } from './dates'
 import { store } from './store'
 import type { BlockInput, ScheduleBlock, Task, TaskInput, WorkoutInput, WorkoutPlan } from './types'
 
@@ -85,6 +85,21 @@ export function useWeek(weekStart: string) {
     async deleteWorkout(id: string) {
       setWorkouts((x) => x.filter((w) => w.id !== id))
       await run(() => store.deleteWorkout(id))
+    },
+    // Replaces the repeating work hours from today on; past weeks keep their old hours.
+    async saveBaseWeek(next: BlockInput[]) {
+      const t = today()
+      const old = blocks.filter((b) => b.weekday != null && b.kind === 'work' && (!b.repeat_until || b.repeat_until >= t))
+      const ok = await run(async () => {
+        for (const b of old) {
+          if (b.repeat_from && b.repeat_from >= t) await store.deleteBlock(b.id)
+          else await store.updateBlock(b.id, { repeat_until: addDays(t, -1) })
+        }
+        if (next.length) await store.createBlocks(next)
+        return true
+      })
+      await reload()
+      return !!ok
     },
     async importWorkouts(ws: WorkoutInput[]) {
       const ok = await run(() => store.replaceWorkouts(ws))

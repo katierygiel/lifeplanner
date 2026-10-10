@@ -112,11 +112,12 @@ export function WorkoutSheet({ open, date, workout, onClose, onSave, onDelete }:
 type ImportProps = {
   open: boolean
   defaultStart: string
+  notes?: string | null
   onClose: () => void
   onImport: (ws: WorkoutInput[]) => Promise<boolean>
 }
 
-export function ImportSheet({ open, defaultStart, onClose, onImport }: ImportProps) {
+export function ImportSheet({ open, defaultStart, notes, onClose, onImport }: ImportProps) {
   const [start, setStart] = useState(defaultStart)
   const [days, setDays] = useState(14)
   const [copied, setCopied] = useState(false)
@@ -132,7 +133,7 @@ export function ImportSheet({ open, defaultStart, onClose, onImport }: ImportPro
     setError(null)
   }, [open, defaultStart])
 
-  const prompt = importPrompt(start, days)
+  const prompt = importPrompt(start, days, notes)
   const parsed = useMemo(() => parseWorkouts(text), [text])
   const inRange = parsed.days.filter((d) => d.date >= start && d.date <= addDays(start, days - 1))
   const outOfRange = parsed.days.length - inRange.length
@@ -179,6 +180,11 @@ export function ImportSheet({ open, defaultStart, onClose, onImport }: ImportPro
         ))}
       </div>
 
+      {!notes?.trim() && (
+        <p className="mt-3 rounded-xl bg-lemon-soft px-3 py-2 text-[12px] text-lemon-ink">
+          Tip: add your training goals in Settings and they'll be included in this request.
+        </p>
+      )}
       <textarea id="import-prompt" readOnly value={prompt} rows={5} className="mt-3 w-full resize-none rounded-2xl bg-canvas p-3 text-[12px] leading-relaxed text-ink-soft outline-none" />
       <div className="mt-2 flex gap-2">
         <Button type="button" variant="primary" className="flex-1" onClick={copy}>

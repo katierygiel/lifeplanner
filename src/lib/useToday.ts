@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { addDays } from './dates'
+import { evaluate } from './achievements'
 import { routineProgress } from './routines'
 import { starterRoutines } from './starters'
 import { store } from './store'
@@ -8,6 +9,8 @@ import type {
   Checkin, DayMode, Habit, HabitInput, Routine, RoutineLog, ScheduleBlock, Task, TaskInput, WorkoutInput, WorkoutPlan, XpEvent,
 } from './types'
 import { levelFromXp, TIER_XP } from './xp'
+
+export type Celebration = { kind: 'level'; key: string; level: number } | { kind: 'achievement'; key: string }
 
 export const WORKOUT_XP = { full: 30, short: 25, recovery: 20 } as const
 
@@ -35,13 +38,16 @@ export function useToday(date: string) {
   const [blocks, setBlocks] = useState<ScheduleBlock[]>([])
   const [workout, setWorkout] = useState<WorkoutPlan | null>(null)
   const [loading, setLoading] = useState(true)
+  const [celebrations, setCelebrations] = useState<Celebration[]>([])
+  const earnedRef = useRef<Set<string> | null>(null)
+  const levelRef = useRef<number | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const report = (e: unknown) => setError((e as Error).message)
 
   const reload = useCallback(async () => {
     try {
-      const [t, x, c, h, hl, r, rl, b, w] = await Promise.all([
+      const [t, x, c, h, hl, r, rl, b, w, ach] = await Promise.all([
         store.listTasks(date),
         store.listXp(),
         store.getCheckin(date),
@@ -51,7 +57,9 @@ export function useToday(date: string) {
         store.listRoutineLogs(date),
         store.listBlocks(),
         store.listWorkouts(date, date),
+        store.listAchievements().catch(() => []),
       ])
+      earnedRef.current = new Set(ach.map((a) => a.achievement_key))
       setBlocks(blocksOn(b, date))
       setWorkout(w[0] ?? null)
       setTasks(t)
@@ -72,6 +80,23 @@ export function useToday(date: string) {
   useEffect(() => {
     reload()
   }, [reload])
+
+  // Celebrate new achievements and level-ups. Unchecking never takes an achievement away.
+  useEffect(() => {
+    if (loading || !earnedRef.current) return
+    const real = xp.filter((e) => !e.id.startsWith('temp-'))
+    const lvl = levelFromXp(real.reduce((s, e) => s + e.amount, 0)).level
+    const queue: Celebration[] = []
+    if (levelRef.current !== null && lvl > levelRef.current) queue.push({ kind: 'level', key: `level-up-${lvl}`, level: lvl })
+    levelRef.current = Math.max(levelRef.current ?? 0, lvl)
+    const fresh = evaluate(real, routines, earnedRef.current, date)
+    if (fresh.length) {
+      fresh.forEach((k) => earnedRef.current!.add(k))
+      store.addAchievements(fresh).catch(report)
+      queue.push(...fresh.map((key) => ({ kind: 'achievement' as const, key })))
+    }
+    if (queue.length) setCelebrations((c) => [...c, ...queue])
+  }, [xp, loading, routines, date])
 
   const totalXp = useMemo(() => xp.reduce((s, e) => s + e.amount, 0), [xp])
   const todayXp = useMemo(() => xp.filter((e) => e.date === date).reduce((s, e) => s + e.amount, 0), [xp, date])
@@ -298,6 +323,9 @@ export function useToday(date: string) {
     toggleHabit, saveHabit, deleteHabit,
     toggleStep, saveRoutine, deleteRoutine, addStarterRoutines,
     blocks, workout, completeWorkout, saveWorkout, deleteWorkout,
+    celebrations,
+    xpEvents: xp,
+    dismissCelebration: () => setCelebrations((c) => c.slice(1)),
     clearError: () => setError(null),
   }
 }

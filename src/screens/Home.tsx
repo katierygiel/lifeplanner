@@ -1,7 +1,9 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { ArrowRight, CalendarCheck, Dumbbell, Plus, Settings, Sparkles, Star } from 'lucide-react'
 import { useMemo, useState } from 'react'
+import Celebration from '../components/Celebration'
 import CheckinCard from '../components/CheckinCard'
+import { daysAway, weekDots } from '../lib/achievements'
 import HabitSheet from '../components/HabitSheet'
 import RoutineCard from '../components/RoutineCard'
 import RoutineSheet from '../components/RoutineSheet'
@@ -58,6 +60,8 @@ export default function Home({ name, onOpenSettings }: { name?: string | null; o
     (day.workout?.completed_at && day.workout.chosen) ||
     (pickedVersion && available.includes(pickedVersion) ? pickedVersion : null) ||
     (available.includes(suggestedVersion) ? suggestedVersion : available[0] ?? 'full')
+  const away = day.loading ? 0 : daysAway(day.xpEvents, date)
+  const dots = weekDots(day.xpEvents, date)
   const todaysHabits = day.habits.filter((h) => h.active && isOn(h.days, date))
   const todaysRoutines = day.routines.filter((r) => isOn(r.days, date))
   const routineDone = todaysRoutines.filter((r) => day.routineLogs.find((l) => l.routine_id === r.id)?.completed).length
@@ -104,6 +108,15 @@ export default function Home({ name, onOpenSettings }: { name?: string | null; o
           <button onClick={day.clearError} className="text-[13px] font-bold text-peri-deep">
             OK
           </button>
+        </Card>
+      )}
+
+      {away >= 3 && (
+        <Card tone="lemon">
+          <p className="text-[15px] font-bold">Welcome back</p>
+          <p className="mt-1 text-[13px] text-ink-soft">
+            It's been {away} days. No catching up needed. Pick one small thing today and it counts.
+          </p>
         </Card>
       )}
 
@@ -241,7 +254,7 @@ export default function Home({ name, onOpenSettings }: { name?: string | null; o
       />
       {!day.loading && day.routines.length === 0 ? (
         <Card tone="lilac">
-          <p className="text-[15px] font-bold">Start with your routines from the brief?</p>
+          <p className="text-[15px] font-bold">Start with suggested routines?</p>
           <p className="mt-1 text-[13px] text-ink-soft">Morning routine, evening reset, and a Sunday reset. Edit or delete any of them.</p>
           <div className="mt-3 flex gap-2">
             <Button variant="primary" onClick={day.addStarterRoutines}>
@@ -360,6 +373,12 @@ export default function Home({ name, onOpenSettings }: { name?: string | null; o
           <p className="mt-3 text-[12px] font-semibold text-ink-soft">
             {day.todayXp > 0 ? `+${day.todayXp} XP today` : 'Check something off to earn XP'}
           </p>
+          <div className="mt-3 flex items-center gap-1.5" aria-label={`Active ${dots.filter((d) => d.active).length} of the last 7 days`}>
+            {dots.map((d) => (
+              <span key={d.date} className={cx('h-2 flex-1 rounded-full', d.active ? 'bg-lemon-deep' : 'bg-white')} />
+            ))}
+          </div>
+          <p className="mt-1.5 text-[11px] font-semibold text-ink-faint">{dots.filter((d) => d.active).length} of the last 7 days</p>
         </Card>
         <Card className="flex items-center gap-3">
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-lilac">
@@ -385,6 +404,7 @@ export default function Home({ name, onOpenSettings }: { name?: string | null; o
         <Plus size={26} />
       </motion.button>
 
+      <Celebration item={day.celebrations[0]} remaining={day.celebrations.length} onDone={day.dismissCelebration} />
       <WorkoutSheet
         open={workoutOpen}
         date={date}

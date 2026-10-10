@@ -1,5 +1,6 @@
 import { ChevronLeft, ChevronRight, Download, Dumbbell, Plus, Repeat } from 'lucide-react'
 import { useMemo, useState } from 'react'
+import BaseWeekSheet, { baseWeekBlocks } from '../components/BaseWeekSheet'
 import BlockSheet from '../components/BlockSheet'
 import TaskSheet from '../components/TaskSheet'
 import { Button, Card, Eyebrow, SectionTitle, TierChip, cx } from '../components/ui'
@@ -11,7 +12,7 @@ import { mondayOf, useWeek } from '../lib/useWeek'
 
 const LOAD_TEXT = { light: 'Light day', steady: 'Steady day', busy: 'Busy day', full: 'Very full day' }
 
-export default function Week() {
+export default function Week({ trainingNotes }: { trainingNotes?: string | null }) {
   const t0 = today()
   const [weekStart, setWeekStart] = useState(mondayOf(t0))
   const [selected, setSelected] = useState(t0)
@@ -34,7 +35,7 @@ export default function Week() {
     [days, week.blocks, week.tasks, week.workouts],
   )
   const day = byDay[selected] ?? { blocks: [], tasks: [], load: dayLoad([], []), workout: null }
-  const hasBaseWeek = week.blocks.some((b) => b.weekday != null)
+
 
   const goWeek = (n: number) => {
     const next = addDays(weekStart, 7 * n)
@@ -42,13 +43,8 @@ export default function Week() {
     setSelected(n === 0 ? t0 : next)
   }
 
-  const addBaseWeek = () =>
-    week.addBlocks(
-      [1, 2, 3, 4].map((d) => ({
-        title: 'Work', kind: 'work' as const, date: null, weekday: d, start_time: '10:00', end_time: '17:00',
-        repeat_from: weekStart, repeat_until: null, skipped_dates: [], notes: null,
-      })),
-    )
+  const baseBlocks = week.blocks.filter((b) => b.weekday != null && b.kind === 'work' && (!b.repeat_until || b.repeat_until >= t0))
+  const [baseOpen, setBaseOpen] = useState(false)
 
   return (
     <div className="space-y-3">
@@ -109,13 +105,13 @@ export default function Week() {
         </div>
       </Card>
 
-      {!week.loading && !hasBaseWeek && (
+      {!week.loading && baseBlocks.length === 0 && (
         <Card tone="lilac">
-          <p className="text-[15px] font-bold">Add your usual work week?</p>
-          <p className="mt-1 text-[13px] text-ink-soft">Work 10–5, Monday to Thursday, repeating every week. Fridays stay open. You can change or skip any day.</p>
-          <div className="mt-3 flex gap-2">
-            <Button variant="primary" onClick={addBaseWeek}>Add base week</Button>
-          </div>
+          <p className="text-[15px] font-bold">Set up your usual week</p>
+          <p className="mt-1 text-[13px] text-ink-soft">Pick the days and hours you work most weeks. They'll repeat automatically, and you can change or skip any single day.</p>
+          <Button variant="primary" className="mt-3" onClick={() => setBaseOpen(true)}>
+            Set up my week
+          </Button>
         </Card>
       )}
 
@@ -182,6 +178,12 @@ export default function Week() {
         </div>
       </Card>
 
+      {baseBlocks.length > 0 && (
+        <button onClick={() => setBaseOpen(true)} className="flex w-full items-center gap-2 px-1 text-left text-[13px] font-bold text-peri-deep">
+          <Repeat size={14} /> Edit my usual week
+        </button>
+      )}
+
       {/* Workouts */}
       <SectionTitle title="Workouts" />
       <Card tone="peri" className="flex items-center gap-3">
@@ -198,6 +200,12 @@ export default function Week() {
       </Card>
       <div className="h-6" />
 
+      <BaseWeekSheet
+        open={baseOpen}
+        existing={baseBlocks}
+        onClose={() => setBaseOpen(false)}
+        onSave={(title, rows) => week.saveBaseWeek(baseWeekBlocks(title, rows, t0))}
+      />
       <BlockSheet
         open={blockSheet.open}
         block={blockSheet.block}
@@ -229,6 +237,7 @@ export default function Week() {
       <ImportSheet
         open={importOpen}
         defaultStart={fromDay(t0).getDay() === 0 ? addDays(t0, 1) : t0}
+        notes={trainingNotes}
         onClose={() => setImportOpen(false)}
         onImport={week.importWorkouts}
       />

@@ -1,12 +1,12 @@
 import { addDays, fromDay } from './dates'
 import type { WorkoutInput } from './types'
 
-export function importPrompt(start: string, days: number) {
+export function importPrompt(start: string, days: number, notes?: string | null) {
   const end = addDays(start, days - 1)
   const nice = (d: string) => fromDay(d).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
   return `Plan my workouts from ${nice(start)} to ${nice(end)} (${days} days). For each day give a full version, a short version for busy or low-energy days, and a recovery option.
 
-My usual week: 2 lower-body days, 2 upper-body days, 1 run, plus walking and optional Pilates or mobility. I'm working toward 20 pull-ups and training for HYROX.
+${notes?.trim() ? `About my training: ${notes.trim()}` : 'Balance strength, cardio, and recovery across the week.'}
 
 Reply in exactly this format, one block per day, with no other text:
 

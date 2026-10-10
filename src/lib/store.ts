@@ -37,6 +37,8 @@ export interface Store {
   saveWorkout(w: WorkoutInput & { id?: string }): Promise<WorkoutPlan>
   replaceWorkouts(ws: WorkoutInput[]): Promise<void>
   deleteWorkout(id: string): Promise<void>
+  listAchievements(): Promise<{ achievement_key: string; earned_at: string }[]>
+  addAchievements(keys: string[]): Promise<void>
 }
 
 const fail = (what: string, error: { message: string } | null) => {
@@ -236,6 +238,18 @@ export const supabaseStore: Store = {
     const { error } = await supabase.from('workouts_planned').delete().eq('id', id)
     fail('delete that workout', error)
   },
+  async listAchievements() {
+    const { data, error } = await supabase.from('achievements_earned').select('achievement_key,earned_at').order('earned_at')
+    fail('load your achievements', error)
+    return data ?? []
+  },
+  async addAchievements(keys) {
+    if (!keys.length) return
+    const { error } = await supabase
+      .from('achievements_earned')
+      .upsert(keys.map((achievement_key) => ({ achievement_key })), { onConflict: 'user_id,achievement_key', ignoreDuplicates: true })
+    fail('save your achievement', error)
+  },
 }
 
 /* ---------- Demo store (browser only) ---------- */
@@ -250,6 +264,7 @@ type DemoData = {
   routineLogs?: RoutineLog[]
   blocks?: ScheduleBlock[]
   workouts?: WorkoutPlan[]
+  achievements?: { achievement_key: string; earned_at: string }[]
 }
 const KEY = 'levelup-demo'
 const uid = () => (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2))
@@ -422,6 +437,14 @@ Object.assign(demoStore, {
   },
   async deleteWorkout(id: string) {
     demo.workouts = (demo.workouts ?? []).filter((w) => w.id !== id)
+    save()
+  },
+  async listAchievements() {
+    return demo.achievements ?? []
+  },
+  async addAchievements(keys: string[]) {
+    const have = new Set((demo.achievements ?? []).map((a) => a.achievement_key))
+    demo.achievements = [...(demo.achievements ?? []), ...keys.filter((k) => !have.has(k)).map((k) => ({ achievement_key: k, earned_at: new Date().toISOString() }))]
     save()
   },
 } satisfies Partial<Store>)

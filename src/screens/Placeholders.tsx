@@ -1,4 +1,4 @@
-import { Dumbbell, Shirt, Sparkles } from 'lucide-react'
+import { Dumbbell, Shirt } from 'lucide-react'
 import { EmptyState } from '../components/ui'
 
 function PageHeader({ eyebrow, title }: { eyebrow: string; title: string }) {
@@ -7,20 +7,6 @@ function PageHeader({ eyebrow, title }: { eyebrow: string; title: string }) {
       <div className="text-[13px] font-semibold text-ink-soft">{eyebrow}</div>
       <h1 className="mt-0.5 text-[28px] font-extrabold leading-tight tracking-tight">{title}</h1>
     </header>
-  )
-}
-
-export function Goals() {
-  return (
-    <div className="space-y-3">
-      <PageHeader eyebrow="Seasons, goals, and wins" title="My Goals" />
-      <EmptyState
-        icon={<Sparkles size={24} />}
-        title="Start your first season"
-        body="Name it, set a few goals, and watch small daily actions add up to something bigger."
-        stage="Coming in stage 10"
-      />
-    </div>
   )
 }
 
