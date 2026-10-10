@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import { Briefcase, Footprints, Leaf, MapPin, Palette, Shirt, Star } from 'lucide-react'
+import { Briefcase, Footprints, Leaf, MapPin, Settings, Shirt, Star } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Card, CheckRow, Chip, Eyebrow, ProgressRing, SectionTitle, XPBar, cx } from '../components/ui'
 import { levelFromXp, TIER_XP, type Tier } from '../lib/xp'
@@ -51,7 +51,7 @@ function greeting(d: Date) {
   return 'Good evening'
 }
 
-export default function Home({ onOpenStyle }: { onOpenStyle: () => void }) {
+export default function Home({ name, onOpenSettings }: { name?: string | null; onOpenSettings: () => void }) {
   const now = new Date()
   const [mode, setMode] = useState<DayMode>('full')
   const [version, setVersion] = useState<WorkoutVersion>('full')
@@ -79,13 +79,25 @@ export default function Home({ onOpenStyle }: { onOpenStyle: () => void }) {
           <div className="text-[13px] font-semibold text-ink-soft">
             {now.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
           </div>
-          <h1 className="mt-0.5 text-[28px] font-extrabold leading-tight tracking-tight">{greeting(now)}</h1>
+          <h1 className="mt-0.5 text-[28px] font-extrabold leading-tight tracking-tight">
+            {greeting(now)}
+            {name ? `, ${name}` : ''}
+          </h1>
         </div>
-        <ProgressRing value={progress} size={60} stroke={7}>
-          <span className="text-[13px] font-extrabold">
-            {doneItems}/{totalItems}
-          </span>
-        </ProgressRing>
+        <div className="flex items-center gap-2">
+          <ProgressRing value={progress} size={60} stroke={7}>
+            <span className="text-[13px] font-extrabold">
+              {doneItems}/{totalItems}
+            </span>
+          </ProgressRing>
+          <button
+            onClick={onOpenSettings}
+            aria-label="Settings"
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-ink-soft shadow-soft md:hidden"
+          >
+            <Settings size={18} />
+          </button>
+        </div>
       </header>
 
       {/* Check-in */}
@@ -219,10 +231,7 @@ export default function Home({ onOpenStyle }: { onOpenStyle: () => void }) {
       </Card>
 
       <div className="flex flex-col items-center gap-2 pb-4 pt-6">
-        <p className="text-center text-[12px] text-ink-faint">Preview with sample data. Your own data saves once the database is connected.</p>
-        <button onClick={onOpenStyle} className="flex items-center gap-1.5 text-[12px] font-semibold text-peri-deep md:hidden">
-          <Palette size={14} /> View style guide
-        </button>
+        <p className="text-center text-[12px] text-ink-faint">Sample tasks for now. Your own tasks, habits, and schedule arrive in the next stages.</p>
       </div>
     </div>
   )

@@ -1,12 +1,15 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { useEffect, useState } from 'react'
 import { BottomNav, SideNav, TABS, type TabId } from './components/Nav'
+import { useProfile, useSession } from './lib/supabase'
 import Home from './screens/Home'
 import { Closet, Fitness, Goals, Week } from './screens/Placeholders'
+import Settings from './screens/Settings'
+import SignIn from './screens/SignIn'
 import StyleGuide from './screens/StyleGuide'
 
-type Route = TabId | 'style'
-const ROUTES: Route[] = [...TABS.map((t) => t.id), 'style']
+type Route = TabId | 'style' | 'settings'
+const ROUTES: Route[] = [...TABS.map((t) => t.id), 'style', 'settings']
 
 function readHash(): Route {
   const h = window.location.hash.replace('#/', '').replace('#', '') as Route
@@ -14,6 +17,8 @@ function readHash(): Route {
 }
 
 export default function App() {
+  const { session, loading } = useSession()
+  const { profile, update } = useProfile(session?.user.id)
   const [route, setRoute] = useState<Route>(readHash)
 
   useEffect(() => {
@@ -27,13 +32,31 @@ export default function App() {
     window.scrollTo({ top: 0 })
   }
 
+  if (loading) {
+    return (
+      <div className="flex min-h-full items-center justify-center">
+        <img src="./favicon.svg" alt="" className="h-14 w-14 animate-pulse" />
+      </div>
+    )
+  }
+  if (!session) return <SignIn />
+
   const screen = {
-    home: <Home onOpenStyle={() => go('style')} />,
+    home: <Home name={profile?.display_name} onOpenSettings={() => go('settings')} />,
     week: <Week />,
     goals: <Goals />,
     fitness: <Fitness />,
     closet: <Closet />,
-    style: <StyleGuide onBack={() => go('home')} />,
+    style: <StyleGuide onBack={() => go('settings')} />,
+    settings: (
+      <Settings
+        email={session.user.email}
+        profile={profile}
+        onSaveName={(display_name) => update({ display_name })}
+        onBack={() => go('home')}
+        onOpenStyle={() => go('style')}
+      />
+    ),
   }[route]
 
   return (

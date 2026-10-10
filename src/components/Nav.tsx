@@ -76,13 +76,13 @@ export function SideNav({ active, onSelect }: Props) {
         })}
       </ul>
       <button
-        onClick={() => onSelect('style' as TabId)}
+        onClick={() => onSelect('settings' as TabId)}
         className={cx(
           'mt-auto rounded-btn px-3 py-2.5 text-left text-[13px] font-semibold',
-          active === 'style' ? 'bg-lemon-soft text-lemon-ink' : 'text-ink-faint hover:bg-canvas',
+          active === 'settings' || active === 'style' ? 'bg-lemon-soft text-lemon-ink' : 'text-ink-faint hover:bg-canvas',
         )}
       >
-        Style guide
+        Settings
       </button>
     </nav>
   )
