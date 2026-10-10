@@ -1,13 +1,32 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { addDays } from './dates'
+import { routineProgress } from './routines'
+import { starterRoutines } from './starters'
 import { store } from './store'
-import type { DayMode, Task, TaskInput, XpEvent } from './types'
+import type { Checkin, DayMode, Habit, HabitInput, Routine, RoutineLog, Task, TaskInput, XpEvent } from './types'
 import { levelFromXp, TIER_XP } from './xp'
+
+const emptyCheckin = (date: string): Checkin => ({ date, energy: null, mood: null, motivation: null, soreness: null, day_mode: 'full' })
 
 export function useToday(date: string) {
   const [tasks, setTasks] = useState<Task[]>([])
-  const [xp, setXp] = useState<XpEvent[]>([])
-  const [mode, setModeState] = useState<DayMode>('full')
+  const [xp, setXpState] = useState<XpEvent[]>([])
+  const [checkin, setCheckin] = useState<Checkin>(emptyCheckin(date))
+  const [habits, setHabits] = useState<Habit[]>([])
+  const [habitDone, setHabitDone] = useState<string[]>([])
+  const [routines, setRoutines] = useState<Routine[]>([])
+  const [routineLogs, setRoutineLogsState] = useState<RoutineLog[]>([])
+  // Refs hold the latest values so quick taps never act on stale data.
+  const logsRef = useRef<RoutineLog[]>([])
+  const xpRef = useRef<XpEvent[]>([])
+  const setRoutineLogs = (next: RoutineLog[] | ((l: RoutineLog[]) => RoutineLog[])) => {
+    logsRef.current = typeof next === 'function' ? next(logsRef.current) : next
+    setRoutineLogsState(logsRef.current)
+  }
+  const setXp = (next: XpEvent[] | ((x: XpEvent[]) => XpEvent[])) => {
+    xpRef.current = typeof next === 'function' ? next(xpRef.current) : next
+    setXpState(xpRef.current)
+  }
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -15,10 +34,22 @@ export function useToday(date: string) {
 
   const reload = useCallback(async () => {
     try {
-      const [t, x, m] = await Promise.all([store.listTasks(date), store.listXp(), store.getDayMode(date)])
+      const [t, x, c, h, hl, r, rl] = await Promise.all([
+        store.listTasks(date),
+        store.listXp(),
+        store.getCheckin(date),
+        store.listHabits(),
+        store.listHabitLogs(date),
+        store.listRoutines(),
+        store.listRoutineLogs(date),
+      ])
       setTasks(t)
       setXp(x)
-      setModeState(m ?? 'full')
+      setCheckin(c ?? emptyCheckin(date))
+      setHabits(h)
+      setHabitDone(hl)
+      setRoutines(r)
+      setRoutineLogs(rl)
       setError(null)
     } catch (e) {
       report(e)
@@ -34,22 +65,30 @@ export function useToday(date: string) {
   const totalXp = useMemo(() => xp.reduce((s, e) => s + e.amount, 0), [xp])
   const todayXp = useMemo(() => xp.filter((e) => e.date === date).reduce((s, e) => s + e.amount, 0), [xp, date])
   const level = levelFromXp(totalXp)
+  const mode = checkin.day_mode
 
+  /* ----- XP helpers ----- */
+  async function earn(source_type: string, source_id: string, amount: number) {
+    const tempId = `temp-${source_type}-${source_id}`
+    if (xpRef.current.some((e) => e.source_type === source_type && e.source_id === source_id && e.date === date)) return
+    setXp((x) => [...x, { id: tempId, amount, source_type, source_id, date }])
+    const saved = await store.addXp({ amount, source_type, source_id, date })
+    setXp((x) => (saved ? x.map((e) => (e.id === tempId ? saved : e)) : x.filter((e) => e.id !== tempId)))
+  }
+  async function unearn(source_type: string, source_id: string, onlyToday: boolean) {
+    setXp((x) => x.filter((e) => !(e.source_type === source_type && e.source_id === source_id && (!onlyToday || e.date === date))))
+    await store.removeXp(source_type, source_id, onlyToday ? date : undefined)
+  }
+
+  /* ----- Tasks ----- */
   async function toggle(task: Task) {
     const done = task.status !== 'done'
     const patch: Partial<Task> = { status: done ? 'done' : 'open', completed_at: done ? new Date().toISOString() : null }
     setTasks((ts) => ts.map((t) => (t.id === task.id ? { ...t, ...patch } : t)))
-    const tempId = `temp-${task.id}`
-    if (done) setXp((x) => [...x, { id: tempId, amount: TIER_XP[task.tier], source_type: 'task', source_id: task.id, date }])
-    else setXp((x) => x.filter((e) => !(e.source_type === 'task' && e.source_id === task.id)))
     try {
       await store.updateTask(task.id, patch)
-      if (done) {
-        const saved = await store.addXp({ amount: TIER_XP[task.tier], source_type: 'task', source_id: task.id, date })
-        setXp((x) => (saved ? x.map((e) => (e.id === tempId ? saved : e)) : x.filter((e) => e.id !== tempId)))
-      } else {
-        await store.removeXp('task', task.id)
-      }
+      if (done) await earn('task', task.id, TIER_XP[task.tier])
+      else await unearn('task', task.id, false)
     } catch (e) {
       report(e)
       reload()
@@ -110,17 +149,108 @@ export function useToday(date: string) {
     }
   }
 
-  async function setMode(m: DayMode) {
-    setModeState(m)
+  /* ----- Check-in ----- */
+  async function saveCheckin(fields: Partial<Omit<Checkin, 'date'>>) {
+    setCheckin((c) => ({ ...c, ...fields }))
     try {
-      await store.setDayMode(date, m)
+      await store.saveCheckin(date, fields)
     } catch (e) {
       report(e)
     }
   }
+  const setMode = (m: DayMode) => saveCheckin({ day_mode: m })
+
+  /* ----- Habits ----- */
+  async function toggleHabit(h: Habit) {
+    const done = !habitDone.includes(h.id)
+    setHabitDone((d) => (done ? [...d, h.id] : d.filter((x) => x !== h.id)))
+    try {
+      await store.setHabitDone(h.id, date, done)
+      if (done) await earn('habit', h.id, h.xp)
+      else await unearn('habit', h.id, true)
+    } catch (e) {
+      report(e)
+      reload()
+    }
+  }
+  async function saveHabit(id: string | null, h: HabitInput) {
+    try {
+      if (id) {
+        const saved = await store.updateHabit(id, h)
+        setHabits((hs) => hs.map((x) => (x.id === id ? saved : x)))
+      } else {
+        const saved = await store.createHabit({ ...h, sort_order: habits.length })
+        setHabits((hs) => [...hs, saved])
+      }
+      return true
+    } catch (e) {
+      report(e)
+      return false
+    }
+  }
+  async function deleteHabit(id: string) {
+    setHabits((hs) => hs.filter((h) => h.id !== id))
+    try {
+      await store.deleteHabit(id)
+    } catch (e) {
+      report(e)
+      reload()
+    }
+  }
+
+  /* ----- Routines ----- */
+  async function toggleStep(r: Routine, stepId: string, version: 'full' | 'busy') {
+    const prev = logsRef.current.find((l) => l.routine_id === r.id)
+    const steps = new Set(prev?.completed_steps ?? [])
+    if (steps.has(stepId)) steps.delete(stepId)
+    else steps.add(stepId)
+    const draft: RoutineLog = { routine_id: r.id, date, version, completed_steps: [...steps], completed: false }
+    draft.completed = routineProgress(r, draft, version).complete
+    setRoutineLogs((ls) => [...ls.filter((l) => l.routine_id !== r.id), draft])
+    try {
+      await store.saveRoutineLog(draft)
+      if (draft.completed && !prev?.completed) await earn('routine', r.id, r.xp)
+      if (!draft.completed && prev?.completed) await unearn('routine', r.id, true)
+    } catch (e) {
+      report(e)
+      reload()
+    }
+  }
+  async function saveRoutine(r: Routine) {
+    try {
+      const saved = await store.saveRoutine(r)
+      setRoutines((rs) => [...rs.filter((x) => x.id !== r.id), saved].sort((a, b) => a.sort_order - b.sort_order))
+      return true
+    } catch (e) {
+      report(e)
+      return false
+    }
+  }
+  async function deleteRoutine(id: string) {
+    setRoutines((rs) => rs.filter((r) => r.id !== id))
+    try {
+      await store.deleteRoutine(id)
+    } catch (e) {
+      report(e)
+      reload()
+    }
+  }
+  async function addStarterRoutines() {
+    try {
+      const starters = starterRoutines().map((r, i) => ({ ...r, sort_order: routines.length + i }))
+      for (const r of starters) await store.saveRoutine(r)
+      setRoutines((rs) => [...rs, ...starters])
+    } catch (e) {
+      report(e)
+      reload()
+    }
+  }
 
   return {
-    tasks, mode, loading, error, level, totalXp, todayXp,
-    toggle, add, edit, remove, moveToTomorrow, setMode, clearError: () => setError(null),
+    tasks, mode, checkin, habits, habitDone, routines, routineLogs, loading, error, level, totalXp, todayXp,
+    toggle, add, edit, remove, moveToTomorrow, setMode, saveCheckin,
+    toggleHabit, saveHabit, deleteHabit,
+    toggleStep, saveRoutine, deleteRoutine, addStarterRoutines,
+    clearError: () => setError(null),
   }
 }

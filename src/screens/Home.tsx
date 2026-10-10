@@ -1,11 +1,17 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { ArrowRight, CalendarCheck, Plus, Settings, Sparkles, Star } from 'lucide-react'
 import { useMemo, useState } from 'react'
+import CheckinCard from '../components/CheckinCard'
+import HabitSheet from '../components/HabitSheet'
+import RoutineCard from '../components/RoutineCard'
+import RoutineSheet from '../components/RoutineSheet'
+import { describeDays } from '../components/Sheet'
 import TaskSheet from '../components/TaskSheet'
-import { Button, Card, CheckRow, Chip, Eyebrow, ProgressRing, SectionTitle, XPBar, cx } from '../components/ui'
+import { Button, Card, CheckRow, Eyebrow, ProgressRing, SectionTitle, XPBar, cx } from '../components/ui'
 import { today } from '../lib/dates'
-import { DAY_MODES, splitForMode } from '../lib/plan'
-import type { Task, TaskInput } from '../lib/types'
+import { splitForMode } from '../lib/plan'
+import { defaultVersion, isOn } from '../lib/routines'
+import type { Habit, Routine, Task, TaskInput } from '../lib/types'
 import { useToday } from '../lib/useToday'
 import { TIER_XP } from '../lib/xp'
 
@@ -39,6 +45,8 @@ export default function Home({ name, onOpenSettings }: { name?: string | null; o
   const day = useToday(date)
   const [sheet, setSheet] = useState<{ open: boolean; task: Task | null; preset?: Partial<TaskInput> }>({ open: false, task: null })
   const [showHidden, setShowHidden] = useState(false)
+  const [habitSheet, setHabitSheet] = useState<{ open: boolean; habit: Habit | null }>({ open: false, habit: null })
+  const [routineSheet, setRoutineSheet] = useState<{ open: boolean; routine: Routine | null }>({ open: false, routine: null })
   const [version, setVersion] = useState<WorkoutVersion>('full')
   const [workoutDone, setWorkoutDone] = useState(false)
 
@@ -46,8 +54,14 @@ export default function Home({ name, onOpenSettings }: { name?: string | null; o
   const listed = showHidden ? [...visible, ...hidden] : visible
   const priority = day.tasks.find((t) => t.is_priority)
   const counted = visible.filter((t) => !t.is_priority)
-  const doneCount = visible.filter((t) => t.status === 'done').length
-  const progress = visible.length ? doneCount / visible.length : 0
+
+  const todaysHabits = day.habits.filter((h) => h.active && isOn(h.days, date))
+  const todaysRoutines = day.routines.filter((r) => isOn(r.days, date))
+  const routineDone = todaysRoutines.filter((r) => day.routineLogs.find((l) => l.routine_id === r.id)?.completed).length
+  const totalCount = visible.length + todaysHabits.length + todaysRoutines.length
+  const doneCount =
+    visible.filter((t) => t.status === 'done').length + todaysHabits.filter((h) => day.habitDone.includes(h.id)).length + routineDone
+  const progress = totalCount ? doneCount / totalCount : 0
 
   const openNew = (preset?: Partial<TaskInput>) => setSheet({ open: true, task: null, preset })
   const openEdit = (task: Task) => setSheet({ open: true, task })
@@ -68,7 +82,7 @@ export default function Home({ name, onOpenSettings }: { name?: string | null; o
         <div className="flex shrink-0 items-center gap-2">
           <ProgressRing value={progress} size={60} stroke={7}>
             <span className="text-[13px] font-extrabold">
-              {doneCount}/{visible.length}
+              {doneCount}/{totalCount}
             </span>
           </ProgressRing>
           <button
@@ -91,29 +105,7 @@ export default function Home({ name, onOpenSettings }: { name?: string | null; o
       )}
 
       {/* Check-in */}
-      <Card>
-        <Eyebrow>Today's check-in</Eyebrow>
-        <p className="mt-1 text-[16px] font-bold">How much do you have in the tank?</p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          {DAY_MODES.map((m) => (
-            <Chip key={m.id} selected={day.mode === m.id} onClick={() => day.setMode(m.id)}>
-              {m.label}
-            </Chip>
-          ))}
-        </div>
-        <AnimatePresence mode="wait">
-          <motion.p
-            key={day.mode}
-            initial={{ opacity: 0, y: 4 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.15 }}
-            className="mt-3 text-[13px] text-ink-soft"
-          >
-            {DAY_MODES.find((m) => m.id === day.mode)?.note}
-          </motion.p>
-        </AnimatePresence>
-      </Card>
+      {!day.loading && <CheckinCard checkin={day.checkin} onSave={day.saveCheckin} />}
 
       {/* Priority */}
       {priority ? (
@@ -220,6 +212,76 @@ export default function Home({ name, onOpenSettings }: { name?: string | null; o
         </Card>
       )}
 
+      {/* Routines */}
+      <SectionTitle
+        title="Routines"
+        action={
+          <button onClick={() => setRoutineSheet({ open: true, routine: null })} className="flex items-center gap-1 text-[13px] font-bold text-peri-deep">
+            <Plus size={16} /> New
+          </button>
+        }
+      />
+      {!day.loading && day.routines.length === 0 ? (
+        <Card tone="lilac">
+          <p className="text-[15px] font-bold">Start with your routines from the brief?</p>
+          <p className="mt-1 text-[13px] text-ink-soft">Morning routine, evening reset, and a Sunday reset. Edit or delete any of them.</p>
+          <div className="mt-3 flex gap-2">
+            <Button variant="primary" onClick={day.addStarterRoutines}>
+              Add starters
+            </Button>
+            <Button onClick={() => setRoutineSheet({ open: true, routine: null })}>Make my own</Button>
+          </div>
+        </Card>
+      ) : todaysRoutines.length === 0 ? (
+        <p className="px-1 text-[13px] text-ink-soft">No routines scheduled today.</p>
+      ) : (
+        <div className="space-y-2">
+          {todaysRoutines.map((r) => (
+            <RoutineCard
+              key={r.id}
+              routine={r}
+              log={day.routineLogs.find((l) => l.routine_id === r.id)}
+              defaultVersion={defaultVersion(day.mode)}
+              onToggleStep={(stepId, v) => day.toggleStep(r, stepId, v)}
+              onEdit={() => setRoutineSheet({ open: true, routine: r })}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Habits */}
+      <SectionTitle
+        title="Habits"
+        action={
+          <button onClick={() => setHabitSheet({ open: true, habit: null })} className="flex items-center gap-1 text-[13px] font-bold text-peri-deep">
+            <Plus size={16} /> New
+          </button>
+        }
+      />
+      {todaysHabits.length === 0 ? (
+        <button
+          onClick={() => setHabitSheet({ open: true, habit: null })}
+          className="w-full rounded-card border-2 border-dashed border-line px-4 py-4 text-left text-[13px] text-ink-soft"
+        >
+          {day.habits.length ? 'No habits scheduled today. Tap to add one.' : 'Add small daily habits, like water, steps, or stretching.'}
+        </button>
+      ) : (
+        <Card className="px-2 py-2">
+          {todaysHabits.map((h) => (
+            <CheckRow
+              key={h.id}
+              title={h.title}
+              tier={h.tier}
+              meta={describeDays(h.days)}
+              xp={h.xp}
+              done={day.habitDone.includes(h.id)}
+              onToggle={() => day.toggleHabit(h)}
+              onOpen={() => setHabitSheet({ open: true, habit: h })}
+            />
+          ))}
+        </Card>
+      )}
+
       {/* Workout (preview until stage 9) */}
       <SectionTitle title="Workout" action={<span className="text-[11px] font-semibold text-ink-faint">Sample until stage 9</span>} />
       <Card tone={version === 'recovery' ? 'mint' : 'peri'}>
@@ -279,6 +341,21 @@ export default function Home({ name, onOpenSettings }: { name?: string | null; o
         <Plus size={26} />
       </motion.button>
 
+      <HabitSheet
+        open={habitSheet.open}
+        habit={habitSheet.habit}
+        onClose={() => setHabitSheet((x) => ({ ...x, open: false }))}
+        onSave={day.saveHabit}
+        onDelete={day.deleteHabit}
+      />
+      <RoutineSheet
+        open={routineSheet.open}
+        routine={routineSheet.routine}
+        nextOrder={day.routines.length}
+        onClose={() => setRoutineSheet((x) => ({ ...x, open: false }))}
+        onSave={day.saveRoutine}
+        onDelete={day.deleteRoutine}
+      />
       <TaskSheet
         open={sheet.open}
         task={sheet.task}
