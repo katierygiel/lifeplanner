@@ -48,6 +48,18 @@ export default function SignIn() {
     setBusy(false)
   }
 
+  const resend = async () => {
+    setError(null)
+    if (!email.includes('@')) return setError('Enter your email above first.')
+    const { error } = await supabase.auth.resend({
+      type: 'signup',
+      email,
+      options: { emailRedirectTo: window.location.origin },
+    })
+    if (error) setError(friendly(error.message))
+    else setNotice('New confirmation email sent. Tap the link, then come back here and sign in.')
+  }
+
   const reset = async () => {
     setError(null)
     if (!email.includes('@')) return setError('Enter your email above first.')
@@ -113,9 +125,14 @@ export default function SignIn() {
             {busy ? 'One moment…' : mode === 'signin' ? 'Sign in' : 'Create account'}
           </Button>
           {mode === 'signin' && (
-            <button type="button" onClick={reset} className="w-full pt-1 text-center text-[13px] font-semibold text-peri-deep">
-              Forgot password?
-            </button>
+            <div className="flex justify-center gap-4 pt-1">
+              <button type="button" onClick={reset} className="text-[13px] font-semibold text-peri-deep">
+                Forgot password?
+              </button>
+              <button type="button" onClick={resend} className="text-[13px] font-semibold text-peri-deep">
+                Resend confirmation
+              </button>
+            </div>
           )}
         </form>
       </motion.div>
