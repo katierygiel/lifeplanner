@@ -53,7 +53,7 @@ export function SideNav({ active, onSelect }: Props) {
     <nav className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r border-line bg-white/70 px-4 py-6 md:flex">
       <div className="mb-8 flex items-center gap-2.5 px-2">
         <img src="./favicon.svg" alt="" className="h-8 w-8" />
-        <span className="text-[17px] font-extrabold">Life Planner</span>
+        <span className="text-[17px] font-extrabold">Level Up</span>
       </div>
       <ul className="space-y-1">
         {TABS.map(({ id, label, icon: Icon }) => {
