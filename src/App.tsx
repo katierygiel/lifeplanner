@@ -6,7 +6,7 @@ import { useProfile, useSession } from './lib/supabase'
 import Home from './screens/Home'
 import Goals from './screens/Goals'
 import Fitness from './screens/Fitness'
-import { Closet } from './screens/Placeholders'
+import Closet from './screens/Closet'
 import Week from './screens/Week'
 import Settings from './screens/Settings'
 import SignIn from './screens/SignIn'
@@ -46,7 +46,7 @@ export default function App() {
   if (!session && !IS_DEMO) return <SignIn />
 
   const screen = {
-    home: <Home name={IS_DEMO ? null : profile?.display_name} onOpenSettings={() => go('settings')} onOpenGoals={() => go('goals')} />,
+    home: <Home name={IS_DEMO ? null : profile?.display_name} onOpenSettings={() => go('settings')} onOpenGoals={() => go('goals')} onOpenCloset={() => go('closet')} />,
     week: <Week trainingNotes={profile?.settings?.training_notes as string | undefined} />,
     goals: <Goals />,
     fitness: <Fitness />,

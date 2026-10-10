@@ -1,6 +1,6 @@
 import { supabase } from './supabase'
 import type {
-  BlockInput, Checkin, DayMode, Goal, Habit, PullupLog, Race, Season, WorkoutLog, WorkoutTemplate, HabitInput, Routine, RoutineLog, ScheduleBlock, Task, TaskInput, WorkoutInput, WorkoutPlan, XpEvent,
+  BlockInput, Checkin, ClosetItem, DayMode, Goal, Outfit, OutfitDay, Habit, PullupLog, Race, Season, WorkoutLog, WorkoutTemplate, HabitInput, Routine, RoutineLog, ScheduleBlock, Task, TaskInput, WorkoutInput, WorkoutPlan, XpEvent,
 } from './types'
 
 // One interface, two backends: the real database, and a demo store (for testing and a future portfolio demo).
@@ -51,6 +51,14 @@ export interface Store {
   templates: Crud<WorkoutTemplate>
   pullups: Crud<PullupLog>
   races: Crud<Race>
+  closet: Crud<ClosetItem>
+  outfits: Crud<Outfit>
+  listOutfitDays(from: string, to: string): Promise<OutfitDay[]>
+  setOutfitDay(date: string, outfitId: string | null): Promise<OutfitDay | null>
+  setWorn(id: string, worn: boolean): Promise<void>
+  uploadPhoto(itemId: string, blob: Blob): Promise<string>
+  photoUrls(paths: string[]): Promise<Record<string, string>>
+  removePhoto(path: string): Promise<void>
 }
 
 // Simple list/save/delete for tables owned by the signed-in person.
@@ -360,6 +368,50 @@ export const supabaseStore: Store = {
   templates: supabaseCrud<WorkoutTemplate>('workout_templates', 'id,title,kind,exercises,notes', 'templates'),
   pullups: supabaseCrud<PullupLog>('pullup_logs', 'id,date,variation,best_reps,sets,notes', 'pull-up logs', 'date'),
   races: supabaseCrud<Race>('races', 'id,name,date,division,result,notes', 'races', 'date'),
+  closet: supabaseCrud<ClosetItem>('closet_items', 'id,name,category,color,seasons,occasions,photo_path,favorite,notes', 'clothes'),
+  outfits: supabaseCrud<Outfit>('outfits', 'id,name,occasion,item_ids,favorite,notes', 'outfits'),
+  async listOutfitDays(from, to) {
+    const { data, error } = await supabase.from('outfit_days').select('id,date,outfit_id,worn').gte('date', from).lte('date', to)
+    fail('load your outfit calendar', error)
+    return (data ?? []) as OutfitDay[]
+  },
+  async setOutfitDay(date, outfitId) {
+    if (!outfitId) {
+      const { error } = await supabase.from('outfit_days').delete().eq('date', date)
+      fail('clear that day', error)
+      return null
+    }
+    const { data: u } = await supabase.auth.getUser()
+    const { data, error } = await supabase
+      .from('outfit_days')
+      .upsert({ user_id: u.user?.id, date, outfit_id: outfitId, worn: false }, { onConflict: 'user_id,date' })
+      .select('id,date,outfit_id,worn')
+      .single()
+    fail('plan that outfit', error)
+    return data as OutfitDay
+  },
+  async setWorn(id, worn) {
+    const { error } = await supabase.from('outfit_days').update({ worn }).eq('id', id)
+    fail('save that', error)
+  },
+  async uploadPhoto(itemId, blob) {
+    const { data: u } = await supabase.auth.getUser()
+    if (!u.user) throw new Error('Sign in again to add photos.')
+    const path = `${u.user.id}/${itemId}-${Date.now().toString(36)}.jpg`
+    const { error } = await supabase.storage.from('closet').upload(path, blob, { contentType: 'image/jpeg', upsert: true })
+    fail('upload that photo', error)
+    return path
+  },
+  async photoUrls(paths) {
+    if (!paths.length) return {}
+    const { data, error } = await supabase.storage.from('closet').createSignedUrls(paths, 60 * 60 * 6)
+    fail('load your photos', error)
+    return Object.fromEntries((data ?? []).filter((d) => d.signedUrl && d.path).map((d) => [d.path as string, d.signedUrl as string]))
+  },
+  async removePhoto(path) {
+    const { error } = await supabase.storage.from('closet').remove([path])
+    fail('remove that photo', error)
+  },
 }
 
 /* ---------- Demo store (browser only) ---------- */
@@ -377,6 +429,8 @@ type DemoData = {
   achievements?: { achievement_key: string; earned_at: string }[]
   seasons?: Season[]
   goals?: Goal[]
+  outfitDays?: OutfitDay[]
+  photos?: Record<string, string>
 }
 const KEY = 'levelup-demo'
 const uid = () => (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2))
@@ -596,6 +650,36 @@ Object.assign(demoStore, {
   templates: demoCrud<WorkoutTemplate>('templates', 'title'),
   pullups: demoCrud<PullupLog>('pullups', 'date'),
   races: demoCrud<Race>('races', 'date'),
+  closet: demoCrud<ClosetItem>('closet', 'name'),
+  outfits: demoCrud<Outfit>('outfits', 'name'),
+  async listOutfitDays(from: string, to: string) {
+    return (demo.outfitDays ?? []).filter((d) => d.date >= from && d.date <= to)
+  },
+  async setOutfitDay(date: string, outfitId: string | null) {
+    const rest = (demo.outfitDays ?? []).filter((d) => d.date !== date)
+    const row = outfitId ? { id: uid(), date, outfit_id: outfitId, worn: false } : null
+    demo.outfitDays = row ? [...rest, row] : rest
+    save()
+    return row
+  },
+  async setWorn(id: string, worn: boolean) {
+    demo.outfitDays = (demo.outfitDays ?? []).map((d) => (d.id === id ? { ...d, worn } : d))
+    save()
+  },
+  async uploadPhoto(itemId: string, blob: Blob) {
+    const { blobToDataUrl } = await import('./image')
+    const path = `demo/${itemId}-${Date.now().toString(36)}.jpg`
+    demo.photos = { ...(demo.photos ?? {}), [path]: await blobToDataUrl(blob) }
+    save()
+    return path
+  },
+  async photoUrls(paths: string[]) {
+    return Object.fromEntries(paths.filter((p) => demo.photos?.[p]).map((p) => [p, demo.photos![p]]))
+  },
+  async removePhoto(path: string) {
+    if (demo.photos) delete demo.photos[path]
+    save()
+  },
 } satisfies Partial<Store>)
 
 export const IS_DEMO = import.meta.env.VITE_DEMO === '1'

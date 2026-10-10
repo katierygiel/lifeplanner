@@ -171,3 +171,26 @@ export type PullupVariation = 'negative' | 'band' | 'assisted' | 'chinup' | 'str
 export type PullupLog = { id: string; date: string; variation: PullupVariation; best_reps: number; sets: number | null; notes: string | null }
 
 export type Race = { id: string; name: string; date: string; division: string | null; result: string | null; notes: string | null }
+
+export type ClosetItem = {
+  id: string
+  name: string
+  category: string
+  color: string | null
+  seasons: string[]
+  occasions: string[]
+  photo_path: string | null
+  favorite: boolean
+  notes: string | null
+}
+
+export type Outfit = {
+  id: string
+  name: string | null
+  occasion: string | null
+  item_ids: string[]
+  favorite: boolean
+  notes: string | null
+}
+
+export type OutfitDay = { id: string; date: string; outfit_id: string; worn: boolean }

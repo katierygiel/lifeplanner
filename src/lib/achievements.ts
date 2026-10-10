@@ -16,6 +16,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   { key: 'routine-regular', title: 'Routine regular', hint: 'Finish the same routine 10 times' },
   { key: 'ten-in-a-month', title: 'Ten workouts in a month', hint: '10 workouts in one calendar month' },
   { key: 'first-month', title: 'First month of consistency', hint: '12 active days within 30 days' },
+  { key: 'outfit-week', title: 'Planned every outfit for a week', hint: 'Plan an outfit for each day, Mon–Sun' },
   { key: 'first-goal', title: 'Completed a seasonal goal', hint: 'Finish a goal in a season' },
   { key: 'season-wrap', title: 'Wrapped a season', hint: 'Review a season when it ends' },
   { key: 'level-5', title: 'Level 5', hint: 'Reach level 5' },

@@ -81,7 +81,7 @@ export function Chip({ selected, onClick, children }: { selected?: boolean; onCl
       onClick={onClick}
       aria-pressed={selected}
       className={cx(
-        'rounded-full px-3.5 py-2 text-[13px] font-semibold transition-colors',
+        'shrink-0 whitespace-nowrap rounded-full px-3.5 py-2 text-[13px] font-semibold transition-colors',
         selected ? 'bg-ink text-white' : 'bg-white text-ink ring-1 ring-line hover:bg-peri-wash',
       )}
     >

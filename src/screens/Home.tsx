@@ -3,6 +3,7 @@ import { ArrowRight, CalendarCheck, Dumbbell, Plus, Settings, Sparkles, Star } f
 import { useMemo, useState } from 'react'
 import Celebration from '../components/Celebration'
 import CheckinCard from '../components/CheckinCard'
+import OutfitToday from '../components/OutfitToday'
 import QuickLog from '../components/QuickLog'
 import type { LogPreset } from '../components/WorkoutLogSheet'
 import { daysAway, weekDots } from '../lib/achievements'
@@ -41,7 +42,9 @@ function meta(t: Task) {
   return parts.join(' · ')
 }
 
-export default function Home({ name, onOpenSettings, onOpenGoals }: { name?: string | null; onOpenSettings: () => void; onOpenGoals: () => void }) {
+export default function Home({
+  name, onOpenSettings, onOpenGoals, onOpenCloset,
+}: { name?: string | null; onOpenSettings: () => void; onOpenGoals: () => void; onOpenCloset: () => void }) {
   const now = new Date()
   const date = today()
   const day = useToday(date)
@@ -386,6 +389,10 @@ export default function Home({ name, onOpenSettings, onOpenGoals }: { name?: str
           <Plus size={18} className="text-peri-deep" />
         </button>
       )}
+
+      {/* Outfit */}
+      <SectionTitle title="Outfit" />
+      <OutfitToday onOpenCloset={onOpenCloset} />
 
       {/* Progress */}
       <SectionTitle title="Progress" />
