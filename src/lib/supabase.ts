@@ -2,7 +2,7 @@ import { createClient, type Session } from '@supabase/supabase-js'
 import { useEffect, useState } from 'react'
 
 // Both values are designed to be public. Privacy comes from row-level security in the database.
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL ?? 'PASTE_PROJECT_URL'
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL ?? 'https://uuvmhdurgsypqtwjildd.supabase.co'
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? 'sb_publishable_0yU4Zp9wFMBfNJNznNhuWw_5yYP-AdE'
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
