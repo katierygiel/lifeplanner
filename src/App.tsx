@@ -45,7 +45,7 @@ export default function App() {
   if (!session && !IS_DEMO) return <SignIn />
 
   const screen = {
-    home: <Home name={IS_DEMO ? null : profile?.display_name} onOpenSettings={() => go('settings')} />,
+    home: <Home name={IS_DEMO ? null : profile?.display_name} onOpenSettings={() => go('settings')} onOpenGoals={() => go('goals')} />,
     week: <Week trainingNotes={profile?.settings?.training_notes as string | undefined} />,
     goals: <Goals />,
     fitness: <Fitness />,

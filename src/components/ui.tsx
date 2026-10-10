@@ -3,7 +3,7 @@ import { Check, Star } from 'lucide-react'
 import type { ButtonHTMLAttributes, ReactNode } from 'react'
 import { TIER_LABEL, type Tier } from '../lib/xp'
 
-const cx = (...c: (string | false | undefined)[]) => c.filter(Boolean).join(' ')
+const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(' ')
 
 /* ---------- Card ---------- */
 type Tone = 'white' | 'lemon' | 'lilac' | 'peri' | 'mint'

@@ -106,3 +106,37 @@ export type WorkoutPlan = {
   source: 'manual' | 'import'
 }
 export type WorkoutInput = Omit<WorkoutPlan, 'id'>
+
+export type SeasonTheme = 'peri' | 'lilac' | 'lemon' | 'mint'
+
+export type Season = {
+  id: string
+  name: string
+  theme: SeasonTheme | null
+  start_date: string
+  end_date: string
+  notes: string | null
+  reflection: string | null
+}
+
+export type Milestone = {
+  id: string
+  title: string
+  due_date: string | null
+  done_at: string | null
+  sort_order: number
+}
+
+export type Goal = {
+  id: string
+  season_id: string | null
+  title: string
+  description: string | null
+  category: string | null
+  target_date: string | null
+  notes: string | null
+  completed_at: string | null
+  sort_order: number
+  milestones: Milestone[]
+  habit_ids: string[]
+}

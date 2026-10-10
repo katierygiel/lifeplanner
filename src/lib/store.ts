@@ -1,6 +1,6 @@
 import { supabase } from './supabase'
 import type {
-  BlockInput, Checkin, DayMode, Habit, HabitInput, Routine, RoutineLog, ScheduleBlock, Task, TaskInput, WorkoutInput, WorkoutPlan, XpEvent,
+  BlockInput, Checkin, DayMode, Goal, Habit, Season, HabitInput, Routine, RoutineLog, ScheduleBlock, Task, TaskInput, WorkoutInput, WorkoutPlan, XpEvent,
 } from './types'
 
 // One interface, two backends: the real database, and a demo store (for testing and a future portfolio demo).
@@ -39,6 +39,14 @@ export interface Store {
   deleteWorkout(id: string): Promise<void>
   listAchievements(): Promise<{ achievement_key: string; earned_at: string }[]>
   addAchievements(keys: string[]): Promise<void>
+  listSeasons(): Promise<Season[]>
+  saveSeason(s: Season): Promise<Season>
+  deleteSeason(id: string): Promise<void>
+  listGoals(): Promise<Goal[]>
+  saveGoal(g: Goal): Promise<Goal>
+  deleteGoal(id: string): Promise<void>
+  setMilestoneDone(id: string, done: boolean): Promise<void>
+  setGoalCompleted(id: string, done: boolean): Promise<void>
 }
 
 const fail = (what: string, error: { message: string } | null) => {
@@ -250,6 +258,54 @@ export const supabaseStore: Store = {
       .upsert(keys.map((achievement_key) => ({ achievement_key })), { onConflict: 'user_id,achievement_key', ignoreDuplicates: true })
     fail('save your achievement', error)
   },
+  async listSeasons() {
+    const { data, error } = await supabase.from('seasons').select('id,name,theme,start_date,end_date,notes,reflection').order('start_date', { ascending: false })
+    fail('load your seasons', error)
+    return (data ?? []) as Season[]
+  },
+  async saveSeason(se) {
+    const { data, error } = await supabase.from('seasons').upsert(se).select('id,name,theme,start_date,end_date,notes,reflection').single()
+    fail('save that season', error)
+    return data as Season
+  },
+  async deleteSeason(id) {
+    const { error } = await supabase.from('seasons').delete().eq('id', id)
+    fail('delete that season', error)
+  },
+  async listGoals() {
+    const { data, error } = await supabase
+      .from('goals')
+      .select('id,season_id,title,description,category,target_date,notes,completed_at,sort_order,milestones(id,title,due_date,done_at,sort_order),goal_habits(habit_id)')
+      .order('sort_order')
+    fail('load your goals', error)
+    return (data ?? []).map(({ goal_habits, ...g }) => ({ ...g, habit_ids: (goal_habits as { habit_id: string }[]).map((x) => x.habit_id) })) as Goal[]
+  },
+  async saveGoal(g) {
+    const { milestones, habit_ids, ...goal } = g
+    const { error } = await supabase.from('goals').upsert(goal)
+    fail('save that goal', error)
+    const { data: existing, error: e2 } = await supabase.from('milestones').select('id').eq('goal_id', g.id)
+    fail('save that goal', e2)
+    const keep = new Set(milestones.map((m) => m.id))
+    const gone = (existing ?? []).map((m) => m.id as string).filter((id) => !keep.has(id))
+    if (gone.length) fail('save that goal', (await supabase.from('milestones').delete().in('id', gone)).error)
+    if (milestones.length) fail('save that goal', (await supabase.from('milestones').upsert(milestones.map((m, i) => ({ ...m, sort_order: i, goal_id: g.id })))).error)
+    fail('save that goal', (await supabase.from('goal_habits').delete().eq('goal_id', g.id)).error)
+    if (habit_ids.length) fail('save that goal', (await supabase.from('goal_habits').insert(habit_ids.map((habit_id) => ({ goal_id: g.id, habit_id })))).error)
+    return g
+  },
+  async deleteGoal(id) {
+    const { error } = await supabase.from('goals').delete().eq('id', id)
+    fail('delete that goal', error)
+  },
+  async setMilestoneDone(id, done) {
+    const { error } = await supabase.from('milestones').update({ done_at: done ? new Date().toISOString() : null }).eq('id', id)
+    fail('save that milestone', error)
+  },
+  async setGoalCompleted(id, done) {
+    const { error } = await supabase.from('goals').update({ completed_at: done ? new Date().toISOString() : null }).eq('id', id)
+    fail('save that goal', error)
+  },
 }
 
 /* ---------- Demo store (browser only) ---------- */
@@ -265,6 +321,8 @@ type DemoData = {
   blocks?: ScheduleBlock[]
   workouts?: WorkoutPlan[]
   achievements?: { achievement_key: string; earned_at: string }[]
+  seasons?: Season[]
+  goals?: Goal[]
 }
 const KEY = 'levelup-demo'
 const uid = () => (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2))
@@ -296,7 +354,7 @@ export const demoStore = {
       id: uid(), notes: null, fixed_time: null, status: 'open', completed_at: null, sort_order: 0,
       created_at: new Date().toISOString(), ...input,
     }
-    demo.tasks.push(t)
+    demo.tasks = [...demo.tasks, t]
     save()
     return t
   },
@@ -314,12 +372,12 @@ export const demoStore = {
     save()
   },
   async listXp() {
-    return demo.xp
+    return [...demo.xp]
   },
   async addXp(e) {
     if (demo.xp.some((x) => x.source_type === e.source_type && x.source_id === e.source_id && x.date === e.date)) return null
     const x = { id: uid(), ...e }
-    demo.xp.push(x)
+    demo.xp = [...demo.xp, x]
     save()
     return x
   },
@@ -445,6 +503,39 @@ Object.assign(demoStore, {
   async addAchievements(keys: string[]) {
     const have = new Set((demo.achievements ?? []).map((a) => a.achievement_key))
     demo.achievements = [...(demo.achievements ?? []), ...keys.filter((k) => !have.has(k)).map((k) => ({ achievement_key: k, earned_at: new Date().toISOString() }))]
+    save()
+  },
+  async listSeasons() {
+    return [...(demo.seasons ?? [])].sort((a, b) => b.start_date.localeCompare(a.start_date))
+  },
+  async saveSeason(se: Season) {
+    demo.seasons = [...(demo.seasons ?? []).filter((x) => x.id !== se.id), se]
+    save()
+    return se
+  },
+  async deleteSeason(id: string) {
+    demo.seasons = (demo.seasons ?? []).filter((x) => x.id !== id)
+    demo.goals = (demo.goals ?? []).map((g) => (g.season_id === id ? { ...g, season_id: null } : g))
+    save()
+  },
+  async listGoals() {
+    return [...(demo.goals ?? [])].sort((a, b) => a.sort_order - b.sort_order)
+  },
+  async saveGoal(g: Goal) {
+    demo.goals = [...(demo.goals ?? []).filter((x) => x.id !== g.id), g]
+    save()
+    return g
+  },
+  async deleteGoal(id: string) {
+    demo.goals = (demo.goals ?? []).filter((x) => x.id !== id)
+    save()
+  },
+  async setMilestoneDone(id: string, done: boolean) {
+    demo.goals = (demo.goals ?? []).map((g) => ({ ...g, milestones: g.milestones.map((m) => (m.id === id ? { ...m, done_at: done ? new Date().toISOString() : null } : m)) }))
+    save()
+  },
+  async setGoalCompleted(id: string, done: boolean) {
+    demo.goals = (demo.goals ?? []).map((g) => (g.id === id ? { ...g, completed_at: done ? new Date().toISOString() : null } : g))
     save()
   },
 } satisfies Partial<Store>)

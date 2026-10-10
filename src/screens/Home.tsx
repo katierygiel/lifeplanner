@@ -14,6 +14,7 @@ import { formatRange, KIND_STYLE } from '../lib/schedule'
 import { Button, Card, CheckRow, Eyebrow, ProgressRing, SectionTitle, XPBar, cx } from '../components/ui'
 import { today } from '../lib/dates'
 import { splitForMode } from '../lib/plan'
+import { seasonProgress, seasonStatus, seasonTime, THEMES } from '../lib/seasons'
 import { defaultVersion, isOn } from '../lib/routines'
 import type { Habit, Routine, Task, TaskInput } from '../lib/types'
 import { useToday, WORKOUT_XP } from '../lib/useToday'
@@ -38,7 +39,7 @@ function meta(t: Task) {
   return parts.join(' · ')
 }
 
-export default function Home({ name, onOpenSettings }: { name?: string | null; onOpenSettings: () => void }) {
+export default function Home({ name, onOpenSettings, onOpenGoals }: { name?: string | null; onOpenSettings: () => void; onOpenGoals: () => void }) {
   const now = new Date()
   const date = today()
   const day = useToday(date)
@@ -60,6 +61,8 @@ export default function Home({ name, onOpenSettings }: { name?: string | null; o
     (day.workout?.completed_at && day.workout.chosen) ||
     (pickedVersion && available.includes(pickedVersion) ? pickedVersion : null) ||
     (available.includes(suggestedVersion) ? suggestedVersion : available[0] ?? 'full')
+  const activeSeason = day.seasons.find((x) => seasonStatus(x, date) === 'active')
+  const seasonGoals = activeSeason ? day.goals.filter((x) => x.season_id === activeSeason.id) : []
   const away = day.loading ? 0 : daysAway(day.xpEvents, date)
   const dots = weekDots(day.xpEvents, date)
   const todaysHabits = day.habits.filter((h) => h.active && isOn(h.days, date))
@@ -380,15 +383,28 @@ export default function Home({ name, onOpenSettings }: { name?: string | null; o
           </div>
           <p className="mt-1.5 text-[11px] font-semibold text-ink-faint">{dots.filter((d) => d.active).length} of the last 7 days</p>
         </Card>
-        <Card className="flex items-center gap-3">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-lilac">
-            <Sparkles size={18} />
-          </span>
-          <span>
-            <span className="block text-[14px] font-bold">Seasons</span>
-            <span className="block text-[12px] text-ink-soft">Your first season arrives in stage 10.</span>
-          </span>
-        </Card>
+        {activeSeason ? (
+          <button onClick={onOpenGoals} className={cx('rounded-card p-4 text-left', THEMES[activeSeason.theme ?? 'peri'].bg)}>
+            <Eyebrow>Current season</Eyebrow>
+            <span className="mt-1 block text-[16px] font-bold">{activeSeason.name}</span>
+            <span className="mt-0.5 block text-[12px] text-ink-soft">
+              Week {seasonTime(activeSeason, date).week} of {seasonTime(activeSeason, date).weeks} · {seasonGoals.filter((x) => x.completed_at).length} of {seasonGoals.length} goals done
+            </span>
+            <span className="mt-3 block h-2 overflow-hidden rounded-full bg-white/80">
+              <span className={cx('block h-full rounded-full', THEMES[activeSeason.theme ?? 'peri'].bar)} style={{ width: `${Math.round(seasonProgress(seasonGoals) * 100)}%` }} />
+            </span>
+          </button>
+        ) : (
+          <button onClick={onOpenGoals} className="flex items-center gap-3 rounded-card bg-white p-4 text-left shadow-soft">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-lilac">
+              <Sparkles size={18} />
+            </span>
+            <span>
+              <span className="block text-[14px] font-bold">Start a season</span>
+              <span className="block text-[12px] text-ink-soft">A few weeks, a few goals. Set one up in My Goals.</span>
+            </span>
+          </button>
+        )}
       </div>
 
       <div className="h-6" />

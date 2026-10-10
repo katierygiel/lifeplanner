@@ -6,7 +6,7 @@ import { starterRoutines } from './starters'
 import { store } from './store'
 import { blocksOn } from './schedule'
 import type {
-  Checkin, DayMode, Habit, HabitInput, Routine, RoutineLog, ScheduleBlock, Task, TaskInput, WorkoutInput, WorkoutPlan, XpEvent,
+  Checkin, DayMode, Goal, Habit, Season, HabitInput, Routine, RoutineLog, ScheduleBlock, Task, TaskInput, WorkoutInput, WorkoutPlan, XpEvent,
 } from './types'
 import { levelFromXp, TIER_XP } from './xp'
 
@@ -37,6 +37,8 @@ export function useToday(date: string) {
   }
   const [blocks, setBlocks] = useState<ScheduleBlock[]>([])
   const [workout, setWorkout] = useState<WorkoutPlan | null>(null)
+  const [seasons, setSeasons] = useState<Season[]>([])
+  const [goals, setGoals] = useState<Goal[]>([])
   const [loading, setLoading] = useState(true)
   const [celebrations, setCelebrations] = useState<Celebration[]>([])
   const earnedRef = useRef<Set<string> | null>(null)
@@ -47,7 +49,7 @@ export function useToday(date: string) {
 
   const reload = useCallback(async () => {
     try {
-      const [t, x, c, h, hl, r, rl, b, w, ach] = await Promise.all([
+      const [t, x, c, h, hl, r, rl, b, w, ach, se, go] = await Promise.all([
         store.listTasks(date),
         store.listXp(),
         store.getCheckin(date),
@@ -58,7 +60,11 @@ export function useToday(date: string) {
         store.listBlocks(),
         store.listWorkouts(date, date),
         store.listAchievements().catch(() => []),
+        store.listSeasons().catch(() => []),
+        store.listGoals().catch(() => []),
       ])
+      setSeasons(se)
+      setGoals(go)
       earnedRef.current = new Set(ach.map((a) => a.achievement_key))
       setBlocks(blocksOn(b, date))
       setWorkout(w[0] ?? null)
@@ -322,6 +328,7 @@ export function useToday(date: string) {
     toggle, add, edit, remove, moveToTomorrow, setMode, saveCheckin,
     toggleHabit, saveHabit, deleteHabit,
     toggleStep, saveRoutine, deleteRoutine, addStarterRoutines,
+    seasons, goals,
     blocks, workout, completeWorkout, saveWorkout, deleteWorkout,
     celebrations,
     xpEvents: xp,

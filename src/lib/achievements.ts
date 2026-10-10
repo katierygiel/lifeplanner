@@ -16,6 +16,8 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   { key: 'routine-regular', title: 'Routine regular', hint: 'Finish the same routine 10 times' },
   { key: 'ten-in-a-month', title: 'Ten workouts in a month', hint: '10 workouts in one calendar month' },
   { key: 'first-month', title: 'First month of consistency', hint: '12 active days within 30 days' },
+  { key: 'first-goal', title: 'Completed a seasonal goal', hint: 'Finish a goal in a season' },
+  { key: 'season-wrap', title: 'Wrapped a season', hint: 'Review a season when it ends' },
   { key: 'level-5', title: 'Level 5', hint: 'Reach level 5' },
   { key: 'level-10', title: 'Level 10', hint: 'Reach level 10' },
   { key: 'comeback', title: 'Came back after a break', hint: 'Return after 3 or more days away', repeatable: true },
@@ -63,6 +65,9 @@ export function evaluate(xp: XpEvent[], routines: Routine[], earned: Set<string>
   if ([...routineCounts.values()].some((n) => n >= 10)) add('routine-regular')
   const weekly = new Set(routines.filter((r) => r.time_of_day === 'weekly').map((r) => r.id))
   if ([...routineCounts.keys()].some((id) => weekly.has(id))) add('personal-reset')
+
+  if (xp.some((e) => e.source_type === 'goal')) add('first-goal')
+  if (xp.some((e) => e.source_type === 'season')) add('season-wrap')
 
   const level = levelFromXp(xp.reduce((s, e) => s + e.amount, 0)).level
   if (level >= 5) add('level-5')
