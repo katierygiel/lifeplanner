@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import { Check } from 'lucide-react'
+import { Check, Star } from 'lucide-react'
 import type { ButtonHTMLAttributes, ReactNode } from 'react'
 import { TIER_LABEL, type Tier } from '../lib/xp'
 
@@ -77,6 +77,7 @@ export function Chip({ selected, onClick, children }: { selected?: boolean; onCl
   return (
     <motion.button
       whileTap={{ scale: 0.95 }}
+      type="button"
       onClick={onClick}
       aria-pressed={selected}
       className={cx(
@@ -148,6 +149,8 @@ export function CheckRow({
   xp,
   done,
   onToggle,
+  onOpen,
+  priority,
 }: {
   title: string
   meta?: string
@@ -155,21 +158,16 @@ export function CheckRow({
   xp: number
   done: boolean
   onToggle: () => void
+  onOpen?: () => void
+  priority?: boolean
 }) {
-  return (
-    <button onClick={onToggle} className="relative flex w-full items-center gap-3 rounded-2xl px-2 py-2.5 text-left hover:bg-peri-wash/60">
-      <motion.span
-        animate={{ scale: done ? [1, 1.25, 1] : 1 }}
-        transition={{ duration: 0.3 }}
-        className={cx(
-          'flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition-colors',
-          done ? 'bg-lemon-deep text-ink' : 'ring-2 ring-peri-soft',
-        )}
-      >
-        {done && <Check size={16} strokeWidth={3} />}
-      </motion.span>
+  const body = (
+    <>
       <span className="min-w-0 flex-1">
-        <span className={cx('block truncate text-[15px] font-semibold', done && 'text-ink-faint line-through decoration-2')}>{title}</span>
+        <span className={cx('block truncate text-[15px] font-semibold', done && 'text-ink-faint line-through decoration-2')}>
+          {priority && <Star size={13} className="mr-1 inline -translate-y-px fill-lemon-deep text-lemon-ink" />}
+          {title}
+        </span>
         {(meta || tier) && (
           <span className="mt-0.5 flex items-center gap-2 text-[12px] text-ink-soft">
             {tier && <TierChip tier={tier} />}
@@ -178,6 +176,32 @@ export function CheckRow({
         )}
       </span>
       <span className={cx('text-[12px] font-bold', done ? 'text-lemon-ink' : 'text-ink-faint')}>+{xp} XP</span>
+    </>
+  )
+  return (
+    <div className="relative flex w-full items-center gap-3 rounded-2xl px-2 py-2.5 text-left hover:bg-peri-wash/60">
+      <motion.button
+        type="button"
+        onClick={onToggle}
+        aria-label={done ? `Mark ${title} not done` : `Mark ${title} done`}
+        animate={{ scale: done ? [1, 1.25, 1] : 1 }}
+        transition={{ duration: 0.3 }}
+        className={cx(
+          'flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition-colors',
+          done ? 'bg-lemon-deep text-ink' : 'ring-2 ring-peri-soft hover:ring-peri',
+        )}
+      >
+        {done && <Check size={16} strokeWidth={3} />}
+      </motion.button>
+      {onOpen ? (
+        <button type="button" onClick={onOpen} className="flex min-w-0 flex-1 items-center gap-3 text-left">
+          {body}
+        </button>
+      ) : (
+        <button type="button" onClick={onToggle} className="flex min-w-0 flex-1 items-center gap-3 text-left">
+          {body}
+        </button>
+      )}
       <AnimatePresence>
         {done && (
           <motion.span
@@ -192,7 +216,7 @@ export function CheckRow({
           </motion.span>
         )}
       </AnimatePresence>
-    </button>
+    </div>
   )
 }
 

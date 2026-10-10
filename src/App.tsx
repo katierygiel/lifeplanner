@@ -1,6 +1,7 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { useEffect, useState } from 'react'
 import { BottomNav, SideNav, TABS, type TabId } from './components/Nav'
+import { IS_DEMO } from './lib/store'
 import { useProfile, useSession } from './lib/supabase'
 import Home from './screens/Home'
 import { Closet, Fitness, Goals, Week } from './screens/Placeholders'
@@ -32,17 +33,17 @@ export default function App() {
     window.scrollTo({ top: 0 })
   }
 
-  if (loading) {
+  if (loading && !IS_DEMO) {
     return (
       <div className="flex min-h-full items-center justify-center">
         <img src="./favicon.svg" alt="" className="h-14 w-14 animate-pulse" />
       </div>
     )
   }
-  if (!session) return <SignIn />
+  if (!session && !IS_DEMO) return <SignIn />
 
   const screen = {
-    home: <Home name={profile?.display_name} onOpenSettings={() => go('settings')} />,
+    home: <Home name={IS_DEMO ? null : profile?.display_name} onOpenSettings={() => go('settings')} />,
     week: <Week />,
     goals: <Goals />,
     fitness: <Fitness />,
@@ -50,7 +51,7 @@ export default function App() {
     style: <StyleGuide onBack={() => go('settings')} />,
     settings: (
       <Settings
-        email={session.user.email}
+        email={session?.user.email}
         profile={profile}
         onSaveName={(display_name) => update({ display_name })}
         onBack={() => go('home')}
