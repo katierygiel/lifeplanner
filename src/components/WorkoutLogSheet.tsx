@@ -1,13 +1,14 @@
-import { Copy, Plus, Trash2, X } from 'lucide-react'
+import { ClipboardPaste, Copy, Plus, Trash2, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { today } from '../lib/dates'
 import { hasDistance, hasSets, KINDS, lastTime, pace } from '../lib/fitness'
+import { parseWorkoutNotes } from '../lib/notesParser'
 import { newId } from '../lib/store'
 import type { ExerciseEntry, WorkoutKind, WorkoutLog, WorkoutTemplate } from '../lib/types'
 import { FieldLabel, Sheet, inputClass } from './Sheet'
 import { Button, Chip, cx } from './ui'
 
-export type LogPreset = Partial<Pick<WorkoutLog, 'title' | 'kind' | 'version' | 'plan_id' | 'date'>>
+export type LogPreset = Partial<Pick<WorkoutLog, 'title' | 'kind' | 'version' | 'plan_id' | 'date'>> & { paste?: boolean }
 
 type Props = {
   open: boolean
@@ -18,6 +19,16 @@ type Props = {
   onClose: () => void
   onSave: (log: WorkoutLog, asTemplate: boolean) => Promise<boolean>
   onDelete: (id: string) => void
+}
+
+function summarizeSets(sets: { reps: number | null; weight: number | null }[]) {
+  const groups: { n: number; reps: number | null; weight: number | null }[] = []
+  for (const s of sets) {
+    const g = groups[groups.length - 1]
+    if (g && g.reps === s.reps && g.weight === s.weight) g.n++
+    else groups.push({ n: 1, ...s })
+  }
+  return groups.map((g) => `${g.n}×${g.reps ?? '?'}${g.weight != null ? ` @ ${g.weight} lb` : ''}`).join(', ')
 }
 
 const num = (v: string) => (v.trim() === '' ? null : Number(v))
@@ -34,6 +45,8 @@ export default function WorkoutLogSheet({ open, log, preset, logs, templates, on
   const [exercises, setExercises] = useState<ExerciseEntry[]>([])
   const [notes, setNotes] = useState('')
   const [asTemplate, setAsTemplate] = useState(false)
+  const [pasteOpen, setPasteOpen] = useState(false)
+  const [pasteText, setPasteText] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [confirm, setConfirm] = useState(false)
 
@@ -51,10 +64,13 @@ export default function WorkoutLogSheet({ open, log, preset, logs, templates, on
     setExercises(log?.exercises?.length ? log.exercises : hasSets(k) ? [blankExercise()] : [])
     setNotes(log?.notes ?? '')
     setAsTemplate(false)
+    setPasteOpen(!!preset?.paste && !log)
+    setPasteText('')
     setError(null)
     setConfirm(false)
   }, [open, log, preset])
 
+  const pasted = useMemo(() => parseWorkoutNotes(pasteText), [pasteText])
   const previous = useMemo(() => (title.trim() ? lastTime(logs.filter((l) => l.id !== log?.id), title) : undefined), [logs, title, log])
   const titles = useMemo(() => [...new Set([...templates.map((t) => t.title), ...logs.map((l) => l.title)])].slice(0, 30), [templates, logs])
 
@@ -176,7 +192,53 @@ export default function WorkoutLogSheet({ open, log, preset, logs, templates, on
 
       {hasSets(kind) && (
         <>
-          <FieldLabel>Exercises</FieldLabel>
+          <div className="mb-2 mt-5 flex items-center justify-between">
+            <span className="text-[12px] font-bold uppercase tracking-[0.08em] text-ink-soft">Exercises</span>
+            <button type="button" onClick={() => setPasteOpen((o) => !o)} className="flex items-center gap-1 text-[12px] font-bold text-peri-deep">
+              <ClipboardPaste size={14} /> {pasteOpen ? 'Hide paste' : 'Paste from Notes'}
+            </button>
+          </div>
+          {pasteOpen && (
+            <div className="mb-3 rounded-2xl bg-peri-wash p-3">
+              <textarea
+                id="log-paste"
+                autoFocus
+                value={pasteText}
+                onChange={(e) => setPasteText(e.target.value)}
+                rows={5}
+                placeholder={'rope tri pull down 3 x 8 20 lbs\nface pulls 3 x 10 20 lbs\nshoulder press 3x8 17.5lbs'}
+                className="w-full rounded-xl bg-white p-3 text-[14px] outline-none ring-1 ring-line focus:ring-2 focus:ring-peri"
+              />
+              {pasted.exercises.length > 0 ? (
+                <ul className="mt-2 space-y-1">
+                  {pasted.exercises.map((e, i) => (
+                    <li key={i} className="text-[12px]">
+                      <b>{e.name}</b> <span className="text-ink-soft">· {summarizeSets(e.sets)}</span>
+                      {e.notes && <span className="block text-[11px] italic text-ink-faint">{e.notes}</span>}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-2 text-[12px] text-ink-soft">One exercise per line, like "face pulls 3 x 10 20 lbs". Mixed sets work too: "1 x 10 30 lbs 2x10 40lbs".</p>
+              )}
+              {pasted.leftovers.length > 0 && <p className="mt-2 text-[11px] text-ink-faint">Saved to notes: {pasted.leftovers.join(' · ')}</p>}
+              <Button
+                type="button"
+                variant="primary"
+                className="mt-2 h-10 w-full text-[14px]"
+                disabled={!pasted.exercises.length}
+                onClick={() => {
+                  setExercises((x) => [...x.filter((e) => e.name.trim()), ...pasted.exercises])
+                  if (!title.trim() && pasted.title) setTitle(pasted.title)
+                  if (pasted.leftovers.length) setNotes((n) => [n.trim(), ...pasted.leftovers].filter(Boolean).join('\n'))
+                  setPasteText('')
+                  setPasteOpen(false)
+                }}
+              >
+                {pasted.exercises.length ? `Add ${pasted.exercises.length} exercises` : 'Add exercises'}
+              </Button>
+            </div>
+          )}
           <div className="space-y-2">
             {exercises.map((ex, i) => (
               <div key={i} className="rounded-2xl bg-canvas p-3">
@@ -192,6 +254,14 @@ export default function WorkoutLogSheet({ open, log, preset, logs, templates, on
                     <X size={16} />
                   </button>
                 </div>
+                {ex.notes != null && (
+                  <input
+                    aria-label={`${ex.name || 'Exercise'} note`}
+                    value={ex.notes}
+                    onChange={(e) => setEx(i, { notes: e.target.value })}
+                    className="mt-1.5 h-8 w-full rounded-lg bg-white/70 px-2.5 text-[12px] italic text-ink-soft outline-none ring-1 ring-line"
+                  />
+                )}
                 <div className="mt-2 grid grid-cols-[28px_1fr_1fr_28px] items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.06em] text-ink-faint">
                   <span>Set</span>
                   <span>Reps</span>

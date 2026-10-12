@@ -1,4 +1,4 @@
-import { Activity, Dumbbell, Flag, Footprints, Medal, PersonStanding, Plus, Trophy, Waves, X, Zap, type LucideIcon } from 'lucide-react'
+import { Activity, ClipboardPaste, Dumbbell, Flag, Footprints, Medal, PersonStanding, Plus, Trophy, Waves, X, Zap, type LucideIcon } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { PullupSheet, RaceSheet } from '../components/FitnessSheets'
 import { Card, Eyebrow, SectionTitle, cx } from '../components/ui'
@@ -85,6 +85,19 @@ export default function Fitness() {
           </p>
         )}
       </Card>
+
+      <button
+        onClick={() => setLogSheet({ open: true, log: null, preset: { kind: 'strength', paste: true } })}
+        className="flex w-full items-center gap-3 rounded-card bg-lemon-soft p-4 text-left"
+      >
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-lemon">
+          <ClipboardPaste size={18} className="text-lemon-ink" />
+        </span>
+        <span>
+          <span className="block text-[15px] font-bold">Paste from Notes</span>
+          <span className="block text-[12px] text-ink-soft">Paste your workout the way you write it and it fills in exercises, sets, and weights.</span>
+        </span>
+      </button>
 
       {/* Quick log */}
       <div className="grid grid-cols-3 gap-2">
