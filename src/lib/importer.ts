@@ -41,7 +41,9 @@ export function parseWorkouts(text: string): { days: ParsedDay[]; skipped: numbe
   const days: ParsedDay[] = []
   let cur: ParsedDay | null = null
   let skipped = 0
-  for (const raw of text.split(/\r?\n/)) {
+  // Start a new line before every label, so a reply pasted as one long line still works.
+  const normalized = text.replace(/\**\b(date|full|short|recovery)\b\**\s*[:：]\**/gi, '\n$1:')
+  for (const raw of normalized.split(/\r?\n/)) {
     const line = clean(raw)
     if (!line) continue
     const m = line.match(/^(date|full|short|recovery)\s*[:：]\s*(.*)$/i)
@@ -52,13 +54,14 @@ export function parseWorkouts(text: string): { days: ParsedDay[]; skipped: numbe
     const key = m[1].toLowerCase()
     const rest = m[2]
     if (key === 'date') {
-      const d = rest.match(/(\d{4})-(\d{2})-(\d{2})/)
+      // Phones and ChatGPT often swap hyphens for long dashes; accept any dash or a slash.
+      const d = rest.match(/(\d{4})\s*[-‐‑‒–—−/.]\s*(\d{1,2})\s*[-‐‑‒–—−/.]\s*(\d{1,2})/)
       if (!d) {
         cur = null
         skipped++
         continue
       }
-      cur = { date: d[0], full_title: null, full_detail: null, short_title: null, short_detail: null, recovery_title: null, recovery_detail: null }
+      cur = { date: `${d[1]}-${d[2].padStart(2, '0')}-${d[3].padStart(2, '0')}`, full_title: null, full_detail: null, short_title: null, short_detail: null, recovery_title: null, recovery_detail: null }
       days.push(cur)
       continue
     }

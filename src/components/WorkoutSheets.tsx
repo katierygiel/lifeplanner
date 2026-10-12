@@ -152,7 +152,12 @@ export function ImportSheet({ open, defaultStart, notes, onClose, onImport }: Im
   }
 
   const submit = async () => {
-    if (!parsed.days.length) return setError("Paste ChatGPT's reply first. Each day should start with DATE:")
+    if (!parsed.days.length)
+      return setError(
+        text.trim()
+          ? "Couldn't find any days in that reply. Each day needs a line like DATE: 2026-10-12, then FULL:, SHORT:, and RECOVERY:."
+          : "Paste ChatGPT's reply first.",
+      )
     setBusy(true)
     const ok = await onImport(parsed.days.map((d) => ({ ...d, chosen: null, completed_at: null, source: 'import' as const })))
     setBusy(false)
